@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:id="@+id/button_container"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Define each button with fixed name -->
+        <Button
+            android:id="@+id/btn_gemini_movies"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gemini Movies" />
+
+        <Button
+            android:id="@+id/btn_star_maa_movies"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Star Maa Movies" />
+
+        <Button
+            android:id="@+id/btn_star_maa_gold"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Star Maa Gold" />
+
+        <Button
+            android:id="@+id/btn_zee_cinemalu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Zee Cinemalu" />
+
+        <Button
+            android:id="@+id/btn_gemini_comedy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gemini Comedy" />
+
+        <Button
+            android:id="@+id/btn_star_maa_music"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Star Maa Music" />
+
+        <Button
+            android:id="@+id/btn_star_maa"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Star Maa" />
+
+        <Button
+            android:id="@+id/btn_gemini_tv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gemini TV" />
+
+        <Button
+            android:id="@+id/btn_zee_telugu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Zee Telugu" />
+
+        <Button
+            android:id="@+id/btn_etv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Etv" />
+
+        <Button
+            android:id="@+id/btn_gemini_music"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gemini Music" />
+
+        <Button
+            android:id="@+id/btn_etv_plus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Etv Plus" />
+
+        <Button
+            android:id="@+id/btn_etv_cinema"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Etv Cinema" />
+
+        <Button
+            android:id="@+id/btn_svbc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SVBC" />
+
+        <Button
+            android:id="@+id/btn_bhakti_tv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Bhakti TV" />
+
+    </LinearLayout>
+</ScrollView>
