@@ -1,12 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 33
+    namespace "com.example.tataskyremote"
+    compileSdkVersion 34
 
     defaultConfig {
         applicationId "com.example.tataskyremote"
-        minSdkVersion 21
-        targetSdkVersion 33
+        minSdkVersion 24
+        targetSdkVersion 34
         versionCode 1
         versionName "1.0"
 
