@@ -2,19 +2,21 @@ package com.example.tataskyremote;
 
 import android.hardware.ConsumerIrManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+
 import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     private HashMap<Integer, String> buttonChannelMap = new HashMap<>();
     private ConsumerIrManager irManager;
-    private static final int CARRIER_FREQUENCY = 56000; // Tata Sky remote frequency
+    private static final int CARRIER_FREQUENCY = 56000;
 
-    // IR patterns for digits 0-9 (fill these from your IR code finder)
+    // IR patterns for digits 0-9
     private final int[] KEY_0 = {2660, 889, 444, 444, 444, 444, 444, 444,
         444, 444, 444, 444, 444, 444, 444, 444,
         444, 444, 444, 444, 444, 444, 444, 444,
@@ -79,9 +81,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         buttonChannelMap.put(R.id.btn_svbc, "1499");
         buttonChannelMap.put(R.id.btn_bhakti_tv, "1490");
 
+        // Null safety for findViewById
         for (Integer id : buttonChannelMap.keySet()) {
             Button btn = findViewById(id);
-            btn.setOnClickListener(this);
+            if (btn != null) {
+                btn.setOnClickListener(this);
+            }
         }
     }
 
@@ -92,21 +97,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Toast.makeText(this, "IR emitter not available!", Toast.LENGTH_SHORT).show();
             return;
         }
-        sendChannel(channelNumber);
+        sendChannelAsync(channelNumber);
         Toast.makeText(this, "Switching to channel: " + channelNumber, Toast.LENGTH_SHORT).show();
     }
 
-    private void sendChannel(String channel) {
-        for (char digit : channel.toCharArray()) {
-            int[] pattern = getPatternForDigit(digit);
-            if (pattern != null) {
-                irManager.transmit(CARRIER_FREQUENCY, pattern);
-                try {
-                    Thread.sleep(300); // 300ms delay after each digit
-                } catch (InterruptedException e) {
-                    // Handle exception
+    // Sends IR patterns for each digit with delay, avoiding UI hang/crash
+    private void sendChannelAsync(String channel) {
+        Handler handler = new Handler();
+        char[] digits = channel.toCharArray();
+        for (int i = 0; i < digits.length; i++) {
+            final int idx = i;
+            handler.postDelayed(() -> {
+                int[] pattern = getPatternForDigit(digits[idx]);
+                if (pattern != null) {
+                    irManager.transmit(CARRIER_FREQUENCY, pattern);
                 }
-            }
+            }, idx * 350);
         }
     }
 
