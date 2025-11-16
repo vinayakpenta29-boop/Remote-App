@@ -3,11 +3,11 @@ package com.example.tataskyremote;
 import android.hardware.ConsumerIrManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-
 import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
@@ -15,8 +15,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private HashMap<Integer, String> buttonChannelMap = new HashMap<>();
     private ConsumerIrManager irManager;
     private static final int CARRIER_FREQUENCY = 56000;
+    private static final String TAG = "TataSkyRemote";
 
-    // IR patterns for digits 0-9
+    // IR patterns for digits 0-9 (fill these out with the actual arrays)
     private final int[] KEY_0 = {2660, 889, 444, 444, 444, 444, 444, 444,
         444, 444, 444, 444, 444, 444, 444, 444,
         444, 444, 444, 444, 444, 444, 444, 444,
@@ -25,7 +26,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         444, 1333, 444, 444, 444, 444, 444, 1333,
         444, 1333, 444, 444, 444, 444, 444, 444,
         444, 444};
-    private final int[] KEY_2 = {2660, 889, 444, 444, 444, 444, 444, 444,
+        private final int[] KEY_2 = {2660, 889, 444, 444, 444, 444, 444, 444,
         444, 1333, 444, 444, 444, 1333, 444, 444,
         444, 1333, 444, 444, 444, 444, 444, 444,
         444, 444};
@@ -58,6 +59,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         444, 1333, 444, 444, 444, 444, 444, 1333,
         444, 444};
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -81,11 +83,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         buttonChannelMap.put(R.id.btn_svbc, "1499");
         buttonChannelMap.put(R.id.btn_bhakti_tv, "1490");
 
-        // Null safety for findViewById
+        // Null safety for buttons
         for (Integer id : buttonChannelMap.keySet()) {
             Button btn = findViewById(id);
             if (btn != null) {
                 btn.setOnClickListener(this);
+            } else {
+                Log.e(TAG, "Button not found in XML for id: " + id);
             }
         }
     }
@@ -93,15 +97,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public void onClick(View v) {
         String channelNumber = buttonChannelMap.get(v.getId());
-        if (irManager == null || !irManager.hasIrEmitter()) {
-            Toast.makeText(this, "IR emitter not available!", Toast.LENGTH_SHORT).show();
+        if (channelNumber == null) {
+            Toast.makeText(this, "Channel map error!", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "Channel number not found for button id: " + v.getId());
+            return;
+        }
+        if (irManager == null) {
+            Toast.makeText(this, "IR manager unavailable!", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "ConsumerIrManager is null");
+            return;
+        }
+        if (!irManager.hasIrEmitter()) {
+            Toast.makeText(this, "No IR emitter detected!", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "No IR emitter on device");
             return;
         }
         sendChannelAsync(channelNumber);
         Toast.makeText(this, "Switching to channel: " + channelNumber, Toast.LENGTH_SHORT).show();
     }
 
-    // Sends IR patterns for each digit with delay, avoiding UI hang/crash
     private void sendChannelAsync(String channel) {
         Handler handler = new Handler();
         char[] digits = channel.toCharArray();
@@ -110,7 +124,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             handler.postDelayed(() -> {
                 int[] pattern = getPatternForDigit(digits[idx]);
                 if (pattern != null) {
-                    irManager.transmit(CARRIER_FREQUENCY, pattern);
+                    try {
+                        irManager.transmit(CARRIER_FREQUENCY, pattern);
+                    } catch (Exception e) {
+                        Toast.makeText(this, "Error sending IR: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "IR transmit error: " + e.getMessage());
+                    }
+                } else {
+                    Toast.makeText(this, "No IR pattern for digit " + digits[idx], Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "No IR pattern for digit " + digits[idx]);
                 }
             }, idx * 350);
         }
