@@ -2,6 +2,9 @@
 <manifest package="com.example.tataskyremote"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Add permission for IR transmission (for older devices) -->
+    <uses-permission android:name="android.permission.TRANSMIT_IR"/>
+
     <application
         android:allowBackup="true"
         android:label="@string/app_name"
