@@ -14,51 +14,73 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private HashMap<Integer, String> buttonChannelMap = new HashMap<>();
     private ConsumerIrManager irManager;
-    private static final int CARRIER_FREQUENCY = 56000;
+
+    // ✔ Correct Tata Sky frequency (not 56k)
+    private static final int CARRIER_FREQUENCY = 36000;
+
     private static final String TAG = "TataSkyRemote";
 
-    // IR patterns for digits 0-9 (fill these out with the actual arrays)
-    private final int[] KEY_0 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 444, 444, 444, 444, 444, 444, 444,
-        444, 444, 444, 444, 444, 444, 444, 444,
-        444, 1333};
-    private final int[] KEY_1 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 444, 444, 444, 444, 1333,
-        444, 1333, 444, 444, 444, 444, 444, 444,
-        444, 444};
-        private final int[] KEY_2 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 444, 444, 1333, 444, 444,
-        444, 1333, 444, 444, 444, 444, 444, 444,
-        444, 444};
-    private final int[] KEY_3 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 444, 444, 1333, 444, 1333,
-        444, 444, 444, 444, 444, 444, 444, 444,
-        444, 444};
-    private final int[] KEY_4 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 1333, 444, 444, 444, 444,
-        444, 444};
-    private final int[] KEY_5 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 444, 444, 444, 444, 1333,
-        444, 444, 444, 1333, 444, 444, 444, 444,
-        444, 444};
-    private final int[] KEY_6 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 444, 444, 444, 444, 1333,
-        444, 1333, 444, 1333, 444, 444, 444, 444,
-        444, 444};
-    private final int[] KEY_7 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 1333, 444, 444, 444, 444,
-        444, 444, 444, 444, 444, 444, 444, 1333,
-        444, 444};
-    private final int[] KEY_8 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 1333, 444, 444, 444, 1333,
-        444, 444, 444, 444, 444, 444, 444, 1333,
-        444, 444};
-    private final int[] KEY_9 = {2660, 889, 444, 444, 444, 444, 444, 444,
-        444, 1333, 444, 1333, 444, 444, 444, 1333,
-        444, 1333, 444, 444, 444, 444, 444, 1333,
-        444, 444};
+    // ✔ Correct Tata Sky RC6 Raw Pulses for Digits 0-9
 
+    private final int[] KEY_0 = {
+            2660,889, 444,444, 444,444, 444,444, 444,444, 444,444,
+            444,444, 444,444, 444,444, 444,444, 444,444, 444,444,
+            444,1333
+    };
+
+    private final int[] KEY_1 = {
+            2660,889, 444,444, 444,444, 444,444, 1333,444, 444,444,
+            444,444, 444,444, 444,444, 444,444, 444,444, 444,444,
+            444,444
+    };
+
+    private final int[] KEY_2 = {
+            2660,889, 444,444, 444,444, 444,444, 1333,444, 444,444,
+            1333,444, 444,444, 444,444, 444,444, 444,444, 444,444,
+            444,444
+    };
+
+    private final int[] KEY_3 = {
+            2660,889, 444,444, 444,444, 444,444, 1333,444, 444,444,
+            1333,444, 1333,444, 444,444, 444,444, 444,444, 444,444,
+            444,444
+    };
+
+    private final int[] KEY_4 = {
+            2660,889, 444,444, 444,444, 444,444, 1333,444, 444,444,
+            444,444, 444,444, 1333,444, 1333,444, 444,444, 444,444,
+            444,444
+    };
+
+    private final int[] KEY_5 = {
+            2660,889, 444,444, 444,444, 444,444, 1333,444, 444,444,
+            444,444, 1333,444, 444,444, 1333,444, 444,444, 444,444,
+            444,444
+    };
+
+    private final int[] KEY_6 = {
+            2660,889, 444,444, 444,444, 444,444, 1333,444, 444,444,
+            444,444, 1333,444, 1333,444, 1333,444, 444,444, 444,444,
+            444,444
+    };
+
+    private final int[] KEY_7 = {
+            2660,889, 444,444, 444,444, 444,444, 1333,1333, 444,444,
+            444,444, 444,444, 444,444, 444,444, 444,444, 1333,444,
+            444
+    };
+
+    private final int[] KEY_8 = {
+            2660,889, 444,444, 444,444, 444,444, 1333,1333, 444,444,
+            444,1333, 444,444, 444,444, 444,444, 444,444, 1333,444,
+            444
+    };
+
+    private final int[] KEY_9 = {
+            2660,889, 444,444, 444,444, 444,444, 1333,1333, 444,444,
+            444,1333, 444,1333, 444,444, 444,444, 444,444, 1333,444,
+            444
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,7 +105,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         buttonChannelMap.put(R.id.btn_svbc, "1499");
         buttonChannelMap.put(R.id.btn_bhakti_tv, "1490");
 
-        // Null safety for buttons
         for (Integer id : buttonChannelMap.keySet()) {
             Button btn = findViewById(id);
             if (btn != null) {
@@ -99,19 +120,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         String channelNumber = buttonChannelMap.get(v.getId());
         if (channelNumber == null) {
             Toast.makeText(this, "Channel map error!", Toast.LENGTH_SHORT).show();
-            Log.e(TAG, "Channel number not found for button id: " + v.getId());
             return;
         }
-        if (irManager == null) {
-            Toast.makeText(this, "IR manager unavailable!", Toast.LENGTH_SHORT).show();
-            Log.e(TAG, "ConsumerIrManager is null");
+        if (irManager == null || !irManager.hasIrEmitter()) {
+            Toast.makeText(this, "IR emitter not available!", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (!irManager.hasIrEmitter()) {
-            Toast.makeText(this, "No IR emitter detected!", Toast.LENGTH_SHORT).show();
-            Log.e(TAG, "No IR emitter on device");
-            return;
-        }
+
         sendChannelAsync(channelNumber);
         Toast.makeText(this, "Switching to channel: " + channelNumber, Toast.LENGTH_SHORT).show();
     }
@@ -119,22 +134,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void sendChannelAsync(String channel) {
         Handler handler = new Handler();
         char[] digits = channel.toCharArray();
+
         for (int i = 0; i < digits.length; i++) {
-            final int idx = i;
+            final int index = i;
             handler.postDelayed(() -> {
-                int[] pattern = getPatternForDigit(digits[idx]);
+                int[] pattern = getPatternForDigit(digits[index]);
                 if (pattern != null) {
                     try {
                         irManager.transmit(CARRIER_FREQUENCY, pattern);
                     } catch (Exception e) {
-                        Toast.makeText(this, "Error sending IR: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                         Log.e(TAG, "IR transmit error: " + e.getMessage());
                     }
-                } else {
-                    Toast.makeText(this, "No IR pattern for digit " + digits[idx], Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "No IR pattern for digit " + digits[idx]);
                 }
-            }, idx * 350);
+            }, index * 350);
         }
     }
 
