@@ -2,6 +2,12 @@ package com.tablecreator.app
 
 import android.graphics.Color
 
+enum class AssignmentMode {
+    NONE,
+    SALESMAN,
+    HELPER
+}
+
 data class CellData(
     var text: String = "",
     var isBold: Boolean = false,
@@ -12,7 +18,9 @@ data class CellData(
 
 data class ColumnConfig(
     var headerText: String,
-    var widthCm: Float = 2.5f
+    var widthCm: Float = 2.5f,
+    var salesmanChecked: Boolean = false,
+    var helperChecked: Boolean = false
 )
 
 data class RowConfig(
@@ -32,18 +40,76 @@ data class TableDocument(
     var borderColor: Int = Color.BLACK,
     var tableCornerRadiusDp: Float = 8f,
     var fontSizeSp: Float = 12f,
+    val salesmanNames: MutableList<String> = mutableListOf(
+        "304 - किरण पन्हा",
+        "305 - नरेश नामपेल्ली",
+        "314 - अंबादास मिराणम",
+        "310 - श्रीनिवास बट्टुल",
+        "309 - श्रीनिवास अंकम",
+        "380 - अंबादास सदुपटला",
+        "316 - महेश गंजी",
+        "318 - गोपी पंडाल",
+        "320 - रवींद्र कोल्पाक",
+        "379 - नरेश महंता"
+    ),
+    val helperNames: MutableList<String> = mutableListOf(
+        "348 - विनायक माहेश्वर",
+        "569 - आकाश अक्कलदेवी",
+        "388 - लखन मदलेटी",
+        "346 - जगदिश गुर्म",
+        "501 - नरेश महंता (New)",
+        "561 - प्रमोद संगा",
+        "499 - अरुण मरगल",
+        "526 - ओम पहाडे",
+        "539 - कार्तिक म्हेत्रे",
+        "801 - दत्तात्रय सानेपागुल"
+    ),
     val columns: MutableList<ColumnConfig> = mutableListOf(),
     val rows: MutableList<RowConfig> = mutableListOf()
 ) {
+    fun isColumnChecked(colIdx: Int, mode: AssignmentMode): Boolean {
+        val col = columns.getOrNull(colIdx) ?: return false
+        return when (mode) {
+            AssignmentMode.SALESMAN -> col.salesmanChecked
+            AssignmentMode.HELPER -> col.helperChecked
+            AssignmentMode.NONE -> false
+        }
+    }
+
+    fun setColumnChecked(colIdx: Int, mode: AssignmentMode, checked: Boolean) {
+        val col = columns.getOrNull(colIdx) ?: return
+        when (mode) {
+            AssignmentMode.SALESMAN -> col.salesmanChecked = checked
+            AssignmentMode.HELPER -> col.helperChecked = checked
+            AssignmentMode.NONE -> Unit
+        }
+    }
+
+    fun getUsedNamesInCheckedColumns(mode: AssignmentMode, excludeRow: Int, excludeCol: Int): Set<String> {
+        val used = mutableSetOf<String>()
+        for (r in rows.indices) {
+            for (c in columns.indices) {
+                if (r == excludeRow && c == excludeCol) continue
+                if (isColumnChecked(c, mode)) {
+                    val value = rows[r].cells.getOrNull(c)?.text?.trim().orEmpty()
+                    if (value.isNotEmpty()) {
+                        used.add(value)
+                    }
+                }
+            }
+        }
+        return used
+    }
+
     companion object {
         fun createSampleLikeImage(): TableDocument {
             val doc = TableDocument()
             val defaultCols = listOf(
                 ColumnConfig("क्र.", 1.1f),
-                ColumnConfig("सेल्समन", 3.6f),
+                ColumnConfig("सेल्समन", 3.6f, salesmanChecked = true),
                 ColumnConfig("वेळ", 1.8f),
                 ColumnConfig("क्र.", 1.1f),
-                ColumnConfig("हेल्पर", 3.8f),
+                ColumnConfig("हेल्पर", 3.8f, helperChecked = true),
                 ColumnConfig("वेळ", 1.8f),
                 ColumnConfig("डबा मागवणे", 4.5f),
                 ColumnConfig("सेल्समन सुट्टी", 4.5f),
@@ -62,7 +128,6 @@ data class TableDocument(
                 doc.rows.add(RowConfig(0.68f, cells))
             }
 
-            // Sample highlighted cells matching your image
             doc.rows[9].cells[7].apply {
                 text = "हेल्पर सुट्टी"
                 isBold = true
