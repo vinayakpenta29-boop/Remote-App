@@ -20,11 +20,9 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Ensure Gradle Wrapper exists
+      - name: Upgrade Gradle Wrapper to 8.4
         run: |
-          if [ ! -f ./gradlew ]; then
-            gradle wrapper --gradle-version 8.4
-          fi
+          gradle wrapper --gradle-version 8.4 --distribution-type bin
           chmod +x ./gradlew
 
       - name: Build Debug APK
