@@ -15,6 +15,7 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.switchmaterial.SwitchMaterial
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -23,6 +24,10 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var tableView: TableCanvasView
     private lateinit var statusText: TextView
+    private lateinit var salesmanSwitch: SwitchMaterial
+    private lateinit var helperSwitch: SwitchMaterial
+    private val bottomButtons = mutableListOf<MaterialButton>()
+    private var suppressSwitchCallbacks = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,11 +37,11 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.parseColor("#ECEFF1"))
         }
 
-        // Top App Bar
+        // Top App Bar with Three-Dots Menu on Right Side
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(Color.parseColor("#1B4F72"))
-            setPadding(24, 20, 24, 20)
+            setPadding(24, 20, 12, 20)
             gravity = Gravity.CENTER_VERTICAL
         }
 
@@ -49,19 +54,80 @@ class MainActivity : AppCompatActivity() {
         }
 
         val exportBtn = MaterialButton(this).apply {
-            text = "Export PDF"
+            text = "PDF"
             setBackgroundColor(Color.parseColor("#2E7D32"))
             setTextColor(Color.WHITE)
             setOnClickListener { exportTableToPdf() }
         }
 
+        val menuBtn = ImageButton(this).apply {
+            setImageResource(android.R.drawable.ic_menu_more)
+            contentDescription = "More Options"
+            setBackgroundColor(Color.TRANSPARENT)
+            setColorFilter(Color.WHITE)
+            setPadding(16, 12, 16, 12)
+            setOnClickListener { showTopOverflowMenu(this) }
+        }
+
         topBar.addView(appTitle)
         topBar.addView(exportBtn)
+        topBar.addView(menuBtn)
         root.addView(topBar)
+
+        // Salesman & Helper Toggle Switch Row
+        val toggleBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.WHITE)
+            setPadding(20, 8, 20, 8)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        salesmanSwitch = SwitchMaterial(this).apply {
+            text = "Salesman"
+            setTextColor(Color.parseColor("#1B4F72"))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setOnCheckedChangeListener { _, isChecked ->
+                if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
+                suppressSwitchCallbacks = true
+                if (isChecked) {
+                    helperSwitch.isChecked = false
+                    tableView.assignmentMode = AssignmentMode.SALESMAN
+                } else {
+                    tableView.assignmentMode = AssignmentMode.NONE
+                }
+                suppressSwitchCallbacks = false
+                updateToolbarEnabledState()
+                updateStatus()
+            }
+        }
+
+        helperSwitch = SwitchMaterial(this).apply {
+            text = "Helper"
+            setTextColor(Color.parseColor("#1B4F72"))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setOnCheckedChangeListener { _, isChecked ->
+                if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
+                suppressSwitchCallbacks = true
+                if (isChecked) {
+                    salesmanSwitch.isChecked = false
+                    tableView.assignmentMode = AssignmentMode.HELPER
+                } else {
+                    tableView.assignmentMode = AssignmentMode.NONE
+                }
+                suppressSwitchCallbacks = false
+                updateToolbarEnabledState()
+                updateStatus()
+            }
+        }
+
+        toggleBar.addView(salesmanSwitch)
+        toggleBar.addView(helperSwitch)
+        root.addView(toggleBar)
 
         // Status Indicator Bar
         statusText = TextView(this).apply {
-            text = "Selected: Row 1, Col 2 (Tap any cell or header to edit)"
             setPadding(24, 10, 24, 10)
             setBackgroundColor(Color.parseColor("#D6EAF8"))
             setTextColor(Color.parseColor("#1B4F72"))
@@ -82,6 +148,9 @@ class MainActivity : AppCompatActivity() {
         tableView = TableCanvasView(this).apply {
             onCellSelectedListener = { r, c ->
                 updateStatus()
+                if (assignmentMode != AssignmentMode.NONE && document.isColumnChecked(c, assignmentMode)) {
+                    showNameSpinnerDialog(r, c, assignmentMode)
+                }
             }
             onHeaderSelectedListener = { c ->
                 showHeaderEditorDialog(c)
@@ -126,8 +195,13 @@ class MainActivity : AppCompatActivity() {
                 )
                 lp.setMargins(6, 0, 6, 0)
                 layoutParams = lp
-                setOnClickListener { action() }
+                setOnClickListener {
+                    if (tableView.assignmentMode == AssignmentMode.NONE) {
+                        action()
+                    }
+                }
             }
+            bottomButtons.add(btn)
             toolbar.addView(btn)
         }
 
@@ -135,7 +209,164 @@ class MainActivity : AppCompatActivity() {
         root.addView(toolbarScroll)
 
         setContentView(root)
+        updateToolbarEnabledState()
         updateStatus()
+    }
+
+    private fun showTopOverflowMenu(anchor: android.view.View) {
+        val popup = PopupMenu(this, anchor)
+        popup.menu.add(0, 1, 0, "Add Salesman Names")
+        popup.menu.add(0, 2, 1, "Add Helper Names")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> {
+                    showManageNamesDialog(isSalesman = true)
+                    true
+                }
+                2 -> {
+                    showManageNamesDialog(isSalesman = false)
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun showManageNamesDialog(isSalesman: Boolean) {
+        val list = if (isSalesman) tableView.document.salesmanNames else tableView.document.helperNames
+        val title = if (isSalesman) "Salesman Names" else "Helper Names"
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 24, 40, 12)
+        }
+
+        val inputRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val nameInput = EditText(this).apply {
+            hint = if (isSalesman) "Enter salesman name" else "Enter helper name"
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val addBtn = Button(this).apply {
+            text = "Add"
+        }
+
+        inputRow.addView(nameInput)
+        inputRow.addView(addBtn)
+        container.addView(inputRow)
+
+        val listView = ListView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                500
+            )
+        }
+
+        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, list)
+        listView.adapter = adapter
+        container.addView(listView)
+
+        addBtn.setOnClickListener {
+            val newName = nameInput.text.toString().trim()
+            if (newName.isEmpty()) {
+                Toast.makeText(this, "Please enter a name", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (list.any { it.equals(newName, ignoreCase = true) }) {
+                Toast.makeText(this, "Name already exists in list", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            list.add(newName)
+            adapter.notifyDataSetChanged()
+            nameInput.setText("")
+        }
+
+        listView.setOnItemLongClickListener { _, _, position, _ ->
+            val removed = list.removeAt(position)
+            adapter.notifyDataSetChanged()
+            Toast.makeText(this, "Removed: $removed", Toast.LENGTH_SHORT).show()
+            true
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage("Tap Add to append a name. Long-press an item to remove.")
+            .setView(container)
+            .setPositiveButton("Done", null)
+            .show()
+    }
+
+    private fun showNameSpinnerDialog(rowIdx: Int, colIdx: Int, mode: AssignmentMode) {
+        val doc = tableView.document
+        val cell = doc.rows.getOrNull(rowIdx)?.cells?.getOrNull(colIdx) ?: return
+        val masterList = if (mode == AssignmentMode.SALESMAN) doc.salesmanNames else doc.helperNames
+        val usedNames = doc.getUsedNamesInCheckedColumns(mode, excludeRow = rowIdx, excludeCol = colIdx)
+
+        val availableNames = masterList.filter { it !in usedNames }
+        val spinnerItems = mutableListOf("-- Clear Cell --").apply {
+            addAll(availableNames)
+            if (cell.text.isNotEmpty() && cell.text !in this) {
+                add(cell.text)
+            }
+        }
+
+        val dialogLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 28, 48, 12)
+        }
+
+        val infoLabel = TextView(this).apply {
+            text = "Duplicate names in checked columns are hidden (${availableNames.size} available)"
+            textSize = 12f
+            setPadding(0, 0, 0, 16)
+        }
+
+        val spinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@MainActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                spinnerItems
+            )
+            val currentIdx = spinnerItems.indexOf(cell.text).coerceAtLeast(0)
+            setSelection(currentIdx)
+        }
+
+        dialogLayout.addView(infoLabel)
+        dialogLayout.addView(spinner)
+
+        val labelType = if (mode == AssignmentMode.SALESMAN) "Salesman" else "Helper"
+        AlertDialog.Builder(this)
+            .setTitle("Select $labelType [R${rowIdx + 1}, C${colIdx + 1}]")
+            .setView(dialogLayout)
+            .setPositiveButton("Set Name") { _, _ ->
+                val chosen = spinner.selectedItem?.toString().orEmpty()
+                if (chosen == "-- Clear Cell --") {
+                    cell.text = ""
+                } else {
+                    if (chosen in usedNames) {
+                        Toast.makeText(this, "Duplicate name is not allowed", Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
+                    cell.text = chosen
+                    cell.isBold = true
+                }
+                tableView.invalidate()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun updateToolbarEnabledState() {
+        val enabled = tableView.assignmentMode == AssignmentMode.NONE
+        for (btn in bottomButtons) {
+            btn.isEnabled = enabled
+            btn.alpha = if (enabled) 1.0f else 0.4f
+        }
     }
 
     private fun updateStatus() {
@@ -144,11 +375,22 @@ class MainActivity : AppCompatActivity() {
         val c = tableView.selectedCol
         val colW = doc.columns.getOrNull(c)?.widthCm ?: 0f
         val rowH = doc.rows.getOrNull(r)?.heightCm ?: 0f
-        statusText.text = String.format(
-            Locale.US,
-            "Cell [R%d, C%d] | Width: %.2f cm | Height: %.2f cm (Tap header to rename)",
-            r + 1, c + 1, colW, rowH
-        )
+
+        statusText.text = when (tableView.assignmentMode) {
+            AssignmentMode.SALESMAN -> {
+                val checked = if (doc.isColumnChecked(c, AssignmentMode.SALESMAN)) "CHECKED" else "UNCHECKED"
+                "SALESMAN MODE: Tap header checkbox to toggle column | Col ${c + 1} is $checked | Tap checked cell to pick name"
+            }
+            AssignmentMode.HELPER -> {
+                val checked = if (doc.isColumnChecked(c, AssignmentMode.HELPER)) "CHECKED" else "UNCHECKED"
+                "HELPER MODE: Tap header checkbox to toggle column | Col ${c + 1} is $checked | Tap checked cell to pick name"
+            }
+            AssignmentMode.NONE -> String.format(
+                Locale.US,
+                "Cell [R%d, C%d] | Width: %.2f cm | Height: %.2f cm (Tap header to edit)",
+                r + 1, c + 1, colW, rowH
+            )
+        }
     }
 
     private fun showCellEditorDialog() {
@@ -164,7 +406,7 @@ class MainActivity : AppCompatActivity() {
 
         val input = EditText(this).apply {
             setText(cell.text)
-            hint = "Enter cell text (Marathi / English / Numbers)"
+            hint = "Enter cell text"
         }
         val boldCheck = CheckBox(this).apply {
             text = "Bold Text"
@@ -276,7 +518,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
         }
         val seekBar = SeekBar(this).apply {
-            max = 95 // 0.5 cm to 10.0 cm in 0.1 cm increments
+            max = 95
             progress = ((col.widthCm - 0.5f) * 10).toInt().coerceIn(0, 95)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
@@ -315,7 +557,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
         }
         val seekBar = SeekBar(this).apply {
-            max = 46 // 0.4 cm to 5.0 cm
+            max = 46
             progress = ((row.heightCm - 0.4f) * 10).toInt().coerceIn(0, 46)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
@@ -337,7 +579,11 @@ class MainActivity : AppCompatActivity() {
                 tableView.document.rows.forEach { it.heightCm = h }
                 tableView.requestLayout()
                 tableView.invalidate()
-                Toast.makeText(this@MainActivity, "Updated all rows to ${String.format(Locale.US, "%.2f", h)} cm", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this@MainActivity,
+                    "Updated all rows to ${String.format(Locale.US, "%.2f", h)} cm",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 
@@ -413,15 +659,15 @@ class MainActivity : AppCompatActivity() {
         }
         val leftInput = EditText(this).apply {
             setText(doc.subHeaderLeft)
-            hint = "Left Label (e.g. सेनापतीचे नाव :)"
+            hint = "Left Label"
         }
         val midInput = EditText(this).apply {
             setText(doc.subHeaderMiddle)
-            hint = "Middle Label (e.g. तारीख :)"
+            hint = "Middle Label"
         }
         val rightInput = EditText(this).apply {
             setText(doc.subHeaderRight)
-            hint = "Right Label (e.g. / वार :)"
+            hint = "Right Label"
         }
 
         layout.addView(showTitleCb)
@@ -459,7 +705,7 @@ class MainActivity : AppCompatActivity() {
             text = String.format(Locale.US, "Border Thickness: %.1f dp", doc.borderWidthDp)
         }
         val widthSeek = SeekBar(this).apply {
-            max = 45 // 0.5 to 5.0 dp
+            max = 45
             progress = ((doc.borderWidthDp - 0.5f) * 10).toInt().coerceIn(0, 45)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
@@ -494,7 +740,7 @@ class MainActivity : AppCompatActivity() {
             text = String.format(Locale.US, "Table Font Size: %.0f sp", doc.fontSizeSp)
         }
         val fontSeek = SeekBar(this).apply {
-            max = 16 // 8sp to 24sp
+            max = 16
             progress = (doc.fontSizeSp - 8f).toInt().coerceIn(0, 16)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
