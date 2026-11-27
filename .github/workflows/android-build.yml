@@ -25,10 +25,10 @@ jobs:
           gradle-version: '8.4'
 
       - name: Build Debug APK
-        run: gradle assembleDebug
+        run: gradle assembleDebug --max-workers=2 --no-daemon
 
       - name: Build unsigned Release APK
-        run: gradle assembleRelease
+        run: gradle assembleRelease --max-workers=2 --no-daemon
 
       - name: Sign Release APK
         uses: r0adkll/sign-android-release@v1
