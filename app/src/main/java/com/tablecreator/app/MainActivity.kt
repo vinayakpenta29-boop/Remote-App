@@ -24,6 +24,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial
 import org.json.JSONArray
 import java.io.FileOutputStream
@@ -48,16 +49,71 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_TABLE_DOC_JSON = "table_document_json"
 
         // Refined Warm Alabaster & Deep Slate Palette
-        private const val BG_CANVAS = "#F4F5F7"
+        private const val BG_CANVAS = "#F1F5F9"
         private const val SURFACE_WHITE = "#FFFFFF"
-        private const val SURFACE_TINT = "#EEF2F6"
-        private const val BORDER_HAIRLINE = "#D8DEE9"
-        private const val SLATE_INK = "#1E293B"
+        private const val SURFACE_TINT = "#F8FAFC"
+        private const val SURFACE_PILL = "#EEF2F6"
+        private const val BORDER_HAIRLINE = "#CBD5E1"
+        private const val SLATE_INK = "#0F172A"
         private const val SLATE_MUTED = "#64748B"
         private const val INDIGO_ACCENT = "#2563EB"
         private const val INDIGO_SOFT = "#EFF6FF"
         private const val INDIGO_BORDER = "#BFDBFE"
         private const val TEAL_PDF = "#0F766E"
+    }
+
+    private fun dp(value: Float): Float = value * resources.displayMetrics.density
+    private fun dpInt(value: Float): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun roundedBackground(
+        fillHex: String,
+        strokeHex: String = BORDER_HAIRLINE,
+        radiusDp: Float = 16f,
+        strokeDp: Float = 1f
+    ): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = dp(radiusDp)
+        setColor(Color.parseColor(fillHex))
+        if (strokeDp > 0f) {
+            setStroke(dpInt(strokeDp), Color.parseColor(strokeHex))
+        }
+    }
+
+    private fun stylePremiumInput(editText: EditText, hintText: String) {
+        editText.apply {
+            hint = hintText
+            setTextColor(Color.parseColor(SLATE_INK))
+            setHintTextColor(Color.parseColor(SLATE_MUTED))
+            textSize = 14f
+            background = roundedBackground(SURFACE_TINT, BORDER_HAIRLINE, radiusDp = 14f, strokeDp = 1.2f)
+            setPadding(dpInt(14f), dpInt(12f), dpInt(14f), dpInt(12f))
+        }
+    }
+
+    private fun showPremiumDialog(builder: MaterialAlertDialogBuilder): AlertDialog {
+        val dialog = builder.create()
+        dialog.setOnShowListener {
+            dialog.window?.let { win ->
+                val bg = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dp(26f)
+                    setColor(Color.parseColor(SURFACE_WHITE))
+                    setStroke(dpInt(1.2f), Color.parseColor(BORDER_HAIRLINE))
+                }
+                win.setBackgroundDrawable(bg)
+            }
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+                setTextColor(Color.parseColor(INDIGO_ACCENT))
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                isAllCaps = false
+            }
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+                setTextColor(Color.parseColor(SLATE_MUTED))
+                isAllCaps = false
+            }
+        }
+        dialog.show()
+        return dialog
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,13 +124,25 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.parseColor(BG_CANVAS))
         }
 
-        // 1. Clean Top Header Bar
+        // 1. Rounded Floating Top Header Card
+        val topCard = MaterialCardView(this).apply {
+            setCardBackgroundColor(Color.parseColor(SURFACE_WHITE))
+            radius = dp(22f)
+            cardElevation = dp(2f)
+            strokeWidth = dpInt(1f)
+            strokeColor = Color.parseColor(BORDER_HAIRLINE)
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(dpInt(12f), dpInt(10f), dpInt(12f), dpInt(6f))
+            layoutParams = lp
+        }
+
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor(SURFACE_WHITE))
-            setPadding(24, 18, 12, 18)
+            setPadding(dpInt(18f), dpInt(12f), dpInt(12f), dpInt(12f))
             gravity = Gravity.CENTER_VERTICAL
-            elevation = 3f
         }
 
         val titleBlock = LinearLayout(this).apply {
@@ -101,24 +169,27 @@ class MainActivity : AppCompatActivity() {
         val exportBtn = MaterialButton(this).apply {
             text = "Export PDF"
             textSize = 12f
+            isAllCaps = false
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
             setTextColor(Color.WHITE)
             backgroundTintList = ColorStateList.valueOf(Color.parseColor(TEAL_PDF))
-            cornerRadius = 18
+            cornerRadius = dpInt(16f)
             setOnClickListener { openPrintPreviewA4Landscape() }
         }
 
         val menuBtn = TextView(this).apply {
             text = "⋮"
-            textSize = 22f
+            textSize = 20f
             setTextColor(Color.parseColor(SLATE_INK))
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor(SURFACE_TINT))
+                setColor(Color.parseColor(SURFACE_PILL))
+                setStroke(dpInt(1f), Color.parseColor(BORDER_HAIRLINE))
             }
-            val sizePx = (40 * resources.displayMetrics.density).toInt()
+            val sizePx = dpInt(38f)
             val lp = LinearLayout.LayoutParams(sizePx, sizePx)
-            lp.setMargins(8, 0, 0, 0)
+            lp.setMargins(dpInt(8f), 0, 0, 0)
             layoutParams = lp
             setOnClickListener { showTopOverflowMenu(this) }
         }
@@ -126,26 +197,27 @@ class MainActivity : AppCompatActivity() {
         topBar.addView(titleBlock)
         topBar.addView(exportBtn)
         topBar.addView(menuBtn)
-        root.addView(topBar)
+        topCard.addView(topBar)
+        root.addView(topCard)
 
-        // 2. Salesman & Helper Toggle Strip
+        // 2. Rounded Salesman & Helper Toggle Card
         val toggleCard = MaterialCardView(this).apply {
             setCardBackgroundColor(Color.parseColor(SURFACE_WHITE))
-            radius = 18f
-            cardElevation = 1f
-            strokeWidth = 2
+            radius = dp(20f)
+            cardElevation = dp(1.5f)
+            strokeWidth = dpInt(1f)
             strokeColor = Color.parseColor(BORDER_HAIRLINE)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            lp.setMargins(14, 10, 14, 6)
+            lp.setMargins(dpInt(12f), 0, dpInt(12f), dpInt(6f))
             layoutParams = lp
         }
 
         val toggleBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(18, 6, 18, 6)
+            setPadding(dpInt(16f), dpInt(4f), dpInt(16f), dpInt(4f))
             gravity = Gravity.CENTER_VERTICAL
         }
 
@@ -196,9 +268,8 @@ class MainActivity : AppCompatActivity() {
 
         val verticalDivider = View(this).apply {
             setBackgroundColor(Color.parseColor(BORDER_HAIRLINE))
-            val hPx = (22 * resources.displayMetrics.density).toInt()
-            val lp = LinearLayout.LayoutParams(2, hPx)
-            lp.setMargins(12, 0, 12, 0)
+            val lp = LinearLayout.LayoutParams(dpInt(1f), dpInt(22f))
+            lp.setMargins(dpInt(12f), 0, dpInt(12f), 0)
             layoutParams = lp
         }
 
@@ -231,42 +302,43 @@ class MainActivity : AppCompatActivity() {
         toggleCard.addView(toggleBar)
         root.addView(toggleCard)
 
-        // 3. Soft Info Status Bar
+        // 3. Rounded Status Pill Card
         val statusCard = MaterialCardView(this).apply {
             setCardBackgroundColor(Color.parseColor(INDIGO_SOFT))
-            radius = 14f
+            radius = dp(16f)
             cardElevation = 0f
-            strokeWidth = 2
+            strokeWidth = dpInt(1f)
             strokeColor = Color.parseColor(INDIGO_BORDER)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            lp.setMargins(14, 0, 14, 8)
+            lp.setMargins(dpInt(12f), 0, dpInt(12f), dpInt(8f))
             layoutParams = lp
         }
 
         statusText = TextView(this).apply {
-            setPadding(18, 10, 18, 10)
+            setPadding(dpInt(16f), dpInt(9f), dpInt(16f), dpInt(9f))
             setTextColor(Color.parseColor("#1E3A8A"))
             textSize = 12f
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         }
         statusCard.addView(statusText)
         root.addView(statusCard)
 
-        // 4. Table Workspace Card
+        // 4. Rounded Table Workspace Card
         val canvasCard = MaterialCardView(this).apply {
             setCardBackgroundColor(Color.parseColor(SURFACE_WHITE))
-            radius = 18f
-            cardElevation = 2f
-            strokeWidth = 2
+            radius = dp(24f)
+            cardElevation = dp(2f)
+            strokeWidth = dpInt(1f)
             strokeColor = Color.parseColor(BORDER_HAIRLINE)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
                 1f
             )
-            lp.setMargins(14, 0, 14, 10)
+            lp.setMargins(dpInt(12f), 0, dpInt(12f), dpInt(8f))
             layoutParams = lp
         }
 
@@ -302,18 +374,18 @@ class MainActivity : AppCompatActivity() {
         canvasCard.addView(verticalScroll)
         root.addView(canvasCard)
 
-        // 5. Bottom Action Toolbar
+        // 5. Rounded Floating Bottom Action Dock
         val dockCard = MaterialCardView(this).apply {
             setCardBackgroundColor(Color.parseColor(SURFACE_WHITE))
-            radius = 20f
-            cardElevation = 4f
-            strokeWidth = 2
+            radius = dp(24f)
+            cardElevation = dp(4f)
+            strokeWidth = dpInt(1f)
             strokeColor = Color.parseColor(BORDER_HAIRLINE)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            lp.setMargins(10, 0, 10, 10)
+            lp.setMargins(dpInt(12f), 0, dpInt(12f), dpInt(10f))
             layoutParams = lp
         }
 
@@ -322,7 +394,7 @@ class MainActivity : AppCompatActivity() {
         }
         val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(12, 12, 12, 12)
+            setPadding(dpInt(10f), dpInt(10f), dpInt(10f), dpInt(10f))
         }
 
         val actions = listOf(
@@ -349,24 +421,26 @@ class MainActivity : AppCompatActivity() {
             ).apply {
                 text = label
                 textSize = 12f
+                isAllCaps = false
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
                 setTextColor(
                     if (isPrimaryAction) Color.WHITE else Color.parseColor(SLATE_INK)
                 )
                 backgroundTintList = ColorStateList.valueOf(
                     if (isPrimaryAction) Color.parseColor(INDIGO_ACCENT)
-                    else Color.parseColor(SURFACE_TINT)
+                    else Color.parseColor(SURFACE_PILL)
                 )
                 strokeColor = ColorStateList.valueOf(
                     if (isPrimaryAction) Color.parseColor(INDIGO_ACCENT)
                     else Color.parseColor(BORDER_HAIRLINE)
                 )
-                strokeWidth = 2
-                cornerRadius = 16
+                strokeWidth = dpInt(1f)
+                cornerRadius = dpInt(16f)
                 val lp = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                lp.setMargins(5, 0, 5, 0)
+                lp.setMargins(dpInt(4f), 0, dpInt(4f), 0)
                 layoutParams = lp
                 setOnClickListener {
                     if (tableView.assignmentMode == AssignmentMode.NONE) {
@@ -404,7 +478,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Also sync separate name lists if updated independently
         readNamesFromPrefs(KEY_SALESMAN_JSON)?.let { savedSalesmen ->
             tableView.document.salesmanNames.clear()
             tableView.document.salesmanNames.addAll(savedSalesmen)
@@ -469,9 +542,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun confirmResetTable() {
-        AlertDialog.Builder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle("Reset Table?")
-            .setMessage("This will reset the table layout and cell entries while keeping your saved Salesman and Helper name lists.")
+            .setMessage("This resets the table layout and cell entries while keeping your saved Salesman and Helper lists.")
             .setPositiveButton("Reset") { _, _ ->
                 val savedSalesmen = ArrayList(tableView.document.salesmanNames)
                 val savedHelpers = ArrayList(tableView.document.helperNames)
@@ -487,7 +560,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Table reset", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
-            .show()
+        showPremiumDialog(builder)
     }
 
     private fun showManageNamesDialog(isSalesman: Boolean) {
@@ -497,7 +570,7 @@ class MainActivity : AppCompatActivity() {
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(40, 24, 40, 12)
+            setPadding(dpInt(22f), dpInt(12f), dpInt(22f), dpInt(8f))
         }
 
         val inputRow = LinearLayout(this).apply {
@@ -506,28 +579,55 @@ class MainActivity : AppCompatActivity() {
         }
 
         val nameInput = EditText(this).apply {
-            hint = if (isSalesman) "Enter salesman name" else "Enter helper name"
+            stylePremiumInput(this, if (isSalesman) "Enter salesman name" else "Enter helper name")
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        val addBtn = Button(this).apply {
+        val addBtn = MaterialButton(this).apply {
             text = "Add"
+            isAllCaps = false
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            cornerRadius = dpInt(14f)
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(dpInt(8f), 0, 0, 0)
+            layoutParams = lp
         }
 
         inputRow.addView(nameInput)
         inputRow.addView(addBtn)
         container.addView(inputRow)
 
-        val listView = ListView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
+        val listCard = MaterialCardView(this).apply {
+            setCardBackgroundColor(Color.parseColor(SURFACE_TINT))
+            radius = dp(16f)
+            cardElevation = 0f
+            strokeWidth = dpInt(1f)
+            strokeColor = Color.parseColor(BORDER_HAIRLINE)
+            val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                500
+                dpInt(230f)
             )
+            lp.setMargins(0, dpInt(14f), 0, 0)
+            layoutParams = lp
+        }
+
+        val listView = ListView(this).apply {
+            divider = GradientDrawable().apply {
+                setColor(Color.parseColor(BORDER_HAIRLINE))
+                setSize(0, dpInt(1f))
+            }
+            dividerHeight = dpInt(1f)
         }
 
         val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, list)
         listView.adapter = adapter
-        container.addView(listView)
+        listCard.addView(listView)
+        container.addView(listCard)
 
         addBtn.setOnClickListener {
             val newName = nameInput.text.toString().trim()
@@ -553,12 +653,12 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        AlertDialog.Builder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle(title)
-            .setMessage("Tap Add to append a name. Long-press an item to remove.")
+            .setMessage("Tap Add to append a name. Long-press any row to delete.")
             .setView(container)
             .setPositiveButton("Done", null)
-            .show()
+        showPremiumDialog(builder)
     }
 
     private fun showNameSpinnerDialog(rowIdx: Int, colIdx: Int, mode: AssignmentMode) {
@@ -577,16 +677,26 @@ class MainActivity : AppCompatActivity() {
 
         val dialogLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 28, 48, 12)
+            setPadding(dpInt(22f), dpInt(12f), dpInt(22f), dpInt(8f))
         }
 
         val infoLabel = TextView(this).apply {
-            text = "Duplicate names in checked columns are hidden (${availableNames.size} available)"
+            text = "Available names (${availableNames.size}) • Duplicates hidden"
             textSize = 12f
-            setPadding(0, 0, 0, 16)
+            setTextColor(Color.parseColor(SLATE_MUTED))
+            setPadding(0, 0, 0, dpInt(12f))
+        }
+
+        val spinnerWrapper = LinearLayout(this).apply {
+            background = roundedBackground(SURFACE_TINT, BORDER_HAIRLINE, radiusDp = 14f, strokeDp = 1.2f)
+            setPadding(dpInt(8f), dpInt(4f), dpInt(8f), dpInt(4f))
         }
 
         val spinner = Spinner(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
             adapter = ArrayAdapter(
                 this@MainActivity,
                 android.R.layout.simple_spinner_dropdown_item,
@@ -596,11 +706,12 @@ class MainActivity : AppCompatActivity() {
             setSelection(currentIdx)
         }
 
+        spinnerWrapper.addView(spinner)
         dialogLayout.addView(infoLabel)
-        dialogLayout.addView(spinner)
+        dialogLayout.addView(spinnerWrapper)
 
         val labelType = if (mode == AssignmentMode.SALESMAN) "Salesman" else "Helper"
-        AlertDialog.Builder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle("Select $labelType [R${rowIdx + 1}, C${colIdx + 1}]")
             .setView(dialogLayout)
             .setPositiveButton("Set Name") { _, _ ->
@@ -619,7 +730,7 @@ class MainActivity : AppCompatActivity() {
                 saveDocumentState()
             }
             .setNegativeButton("Cancel", null)
-            .show()
+        showPremiumDialog(builder)
     }
 
     private fun updateToolbarEnabledState() {
@@ -662,27 +773,45 @@ class MainActivity : AppCompatActivity() {
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 12)
+            setPadding(dpInt(22f), dpInt(12f), dpInt(22f), dpInt(8f))
         }
 
         val input = EditText(this).apply {
+            stylePremiumInput(this, "Enter cell text")
             setText(cell.text)
-            hint = "Enter cell text"
         }
+
+        val optionsCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = roundedBackground(SURFACE_TINT, BORDER_HAIRLINE, radiusDp = 14f, strokeDp = 1f)
+            setPadding(dpInt(12f), dpInt(8f), dpInt(12f), dpInt(8f))
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(0, dpInt(12f), 0, 0)
+            layoutParams = lp
+        }
+
         val boldCheck = CheckBox(this).apply {
             text = "Bold Text"
             isChecked = cell.isBold
+            setTextColor(Color.parseColor(SLATE_INK))
+            buttonTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
         }
         val centerCheck = CheckBox(this).apply {
             text = "Center Align Text"
             isChecked = cell.alignCenter
+            setTextColor(Color.parseColor(SLATE_INK))
+            buttonTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
         }
 
+        optionsCard.addView(boldCheck)
+        optionsCard.addView(centerCheck)
         layout.addView(input)
-        layout.addView(boldCheck)
-        layout.addView(centerCheck)
+        layout.addView(optionsCard)
 
-        AlertDialog.Builder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle("Edit Cell [Row ${r + 1}, Col ${c + 1}]")
             .setView(layout)
             .setPositiveButton("Save") { _, _ ->
@@ -693,32 +822,45 @@ class MainActivity : AppCompatActivity() {
                 saveDocumentState()
             }
             .setNegativeButton("Cancel", null)
-            .show()
+        showPremiumDialog(builder)
     }
 
     private fun showHeaderEditorDialog(colIdx: Int) {
         val col = tableView.document.columns.getOrNull(colIdx) ?: return
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 12)
+            setPadding(dpInt(22f), dpInt(12f), dpInt(22f), dpInt(8f))
         }
 
+        val nameLabel = TextView(this).apply {
+            text = "Header Text"
+            textSize = 12f
+            setTextColor(Color.parseColor(SLATE_MUTED))
+            setPadding(0, 0, 0, dpInt(6f))
+        }
         val nameInput = EditText(this).apply {
+            stylePremiumInput(this, "Column Header Title")
             setText(col.headerText)
-            hint = "Column Header Title"
+        }
+
+        val widthLabel = TextView(this).apply {
+            text = "Column Width (cm)"
+            textSize = 12f
+            setTextColor(Color.parseColor(SLATE_MUTED))
+            setPadding(0, dpInt(12f), 0, dpInt(6f))
         }
         val widthInput = EditText(this).apply {
+            stylePremiumInput(this, "Column Width in cm")
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
             setText(String.format(Locale.US, "%.2f", col.widthCm))
-            hint = "Column Width in cm"
         }
 
-        layout.addView(TextView(this).apply { text = "Header Text:" })
+        layout.addView(nameLabel)
         layout.addView(nameInput)
-        layout.addView(TextView(this).apply { text = "Width (cm):" })
+        layout.addView(widthLabel)
         layout.addView(widthInput)
 
-        AlertDialog.Builder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle("Column ${colIdx + 1} Settings")
             .setView(layout)
             .setPositiveButton("Apply") { _, _ ->
@@ -733,7 +875,7 @@ class MainActivity : AppCompatActivity() {
                 updateStatus()
             }
             .setNegativeButton("Cancel", null)
-            .show()
+        showPremiumDialog(builder)
     }
 
     private fun toggleCellBold() {
@@ -750,7 +892,7 @@ class MainActivity : AppCompatActivity() {
             .getOrNull(tableView.selectedRow)?.cells
             ?.getOrNull(tableView.selectedCol) ?: return
 
-        val colors = arrayOf(
+        val colors = listOf(
             "White (Default)" to Color.WHITE,
             "Soft Cream Yellow" to Color.parseColor("#FFF9DB"),
             "Mint Green" to Color.parseColor("#E8F5E9"),
@@ -760,14 +902,61 @@ class MainActivity : AppCompatActivity() {
             "Light Gray" to Color.parseColor("#ECEFF1")
         )
 
-        AlertDialog.Builder(this)
-            .setTitle("Select Cell Fill Color")
-            .setItems(colors.map { it.first }.toTypedArray()) { _, idx ->
-                cell.bgColor = colors[idx].second
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpInt(20f), dpInt(10f), dpInt(20f), dpInt(12f))
+        }
+
+        var dialogRef: AlertDialog? = null
+
+        for ((label, colorInt) in colors) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = roundedBackground(SURFACE_TINT, BORDER_HAIRLINE, radiusDp = 14f, strokeDp = 1f)
+                setPadding(dpInt(14f), dpInt(11f), dpInt(14f), dpInt(11f))
+                val lp = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                lp.setMargins(0, dpInt(4f), 0, dpInt(4f))
+                layoutParams = lp
+            }
+
+            val swatch = View(this).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(colorInt)
+                    setStroke(dpInt(1.2f), Color.parseColor("#94A3B8"))
+                }
+                val size = dpInt(22f)
+                layoutParams = LinearLayout.LayoutParams(size, size)
+            }
+
+            val text = TextView(this).apply {
+                this.text = label
+                textSize = 14f
+                setTextColor(Color.parseColor(SLATE_INK))
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                setPadding(dpInt(12f), 0, 0, 0)
+            }
+
+            row.addView(swatch)
+            row.addView(text)
+            row.setOnClickListener {
+                cell.bgColor = colorInt
                 tableView.invalidate()
                 saveDocumentState()
+                dialogRef?.dismiss()
             }
-            .show()
+            container.addView(row)
+        }
+
+        val builder = MaterialAlertDialogBuilder(this)
+            .setTitle("Cell Fill Color")
+            .setView(container)
+            .setNegativeButton("Cancel", null)
+        dialogRef = showPremiumDialog(builder)
     }
 
     private fun showColumnWidthDialog() {
@@ -776,15 +965,20 @@ class MainActivity : AppCompatActivity() {
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 12)
+            setPadding(dpInt(22f), dpInt(14f), dpInt(22f), dpInt(8f))
         }
         val label = TextView(this).apply {
             text = String.format(Locale.US, "Width: %.2f cm", col.widthCm)
             textSize = 16f
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            setTextColor(Color.parseColor(INDIGO_ACCENT))
+            setPadding(0, 0, 0, dpInt(10f))
         }
         val seekBar = SeekBar(this).apply {
             max = 95
             progress = ((col.widthCm - 0.5f) * 10).toInt().coerceIn(0, 95)
+            progressTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            thumbTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
                     val cm = 0.5f + (p / 10f)
@@ -803,11 +997,11 @@ class MainActivity : AppCompatActivity() {
         layout.addView(label)
         layout.addView(seekBar)
 
-        AlertDialog.Builder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle("Resize Column ${c + 1} (${col.headerText})")
             .setView(layout)
             .setPositiveButton("Done") { _, _ -> saveDocumentState() }
-            .show()
+        showPremiumDialog(builder)
     }
 
     private fun showRowHeightDialog() {
@@ -816,15 +1010,20 @@ class MainActivity : AppCompatActivity() {
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 12)
+            setPadding(dpInt(22f), dpInt(14f), dpInt(22f), dpInt(8f))
         }
         val label = TextView(this).apply {
             text = String.format(Locale.US, "Row Height: %.2f cm", row.heightCm)
             textSize = 16f
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            setTextColor(Color.parseColor(INDIGO_ACCENT))
+            setPadding(0, 0, 0, dpInt(10f))
         }
         val seekBar = SeekBar(this).apply {
             max = 46
             progress = ((row.heightCm - 0.4f) * 10).toInt().coerceIn(0, 46)
+            progressTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            thumbTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
                     val cm = 0.4f + (p / 10f)
@@ -839,8 +1038,21 @@ class MainActivity : AppCompatActivity() {
                 override fun onStopTrackingTouch(sb: SeekBar?) {}
             })
         }
-        val applyAllBtn = Button(this).apply {
-            text = "Apply This Height to ALL Rows"
+        val applyAllBtn = MaterialButton(this).apply {
+            text = "Apply Height to ALL Rows"
+            isAllCaps = false
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            setTextColor(Color.parseColor(INDIGO_ACCENT))
+            backgroundTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_SOFT))
+            strokeColor = ColorStateList.valueOf(Color.parseColor(INDIGO_BORDER))
+            strokeWidth = dpInt(1f)
+            cornerRadius = dpInt(14f)
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(0, dpInt(14f), 0, 0)
+            layoutParams = lp
             setOnClickListener {
                 val h = row.heightCm
                 tableView.document.rows.forEach { it.heightCm = h }
@@ -859,11 +1071,11 @@ class MainActivity : AppCompatActivity() {
         layout.addView(seekBar)
         layout.addView(applyAllBtn)
 
-        AlertDialog.Builder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle("Resize Row ${r + 1} Height (cm)")
             .setView(layout)
             .setPositiveButton("Done") { _, _ -> saveDocumentState() }
-            .show()
+        showPremiumDialog(builder)
     }
 
     private fun addColumn() {
@@ -914,32 +1126,43 @@ class MainActivity : AppCompatActivity() {
         val doc = tableView.document
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 12)
+            setPadding(dpInt(22f), dpInt(12f), dpInt(22f), dpInt(8f))
         }
 
         val showTitleCb = CheckBox(this).apply {
             text = "Show Big Top Title"
             isChecked = doc.showMainTitle
+            setTextColor(Color.parseColor(SLATE_INK))
+            buttonTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
         }
         val titleInput = EditText(this).apply {
+            stylePremiumInput(this, "Big Top Header Text")
             setText(doc.mainTitle)
-            hint = "Big Top Header Text"
         }
         val showSubCb = CheckBox(this).apply {
             text = "Show Sub-Header Bar"
             isChecked = doc.showSubHeader
+            setTextColor(Color.parseColor(SLATE_INK))
+            buttonTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            setPadding(0, dpInt(10f), 0, 0)
         }
         val leftInput = EditText(this).apply {
+            stylePremiumInput(this, "Left Label")
             setText(doc.subHeaderLeft)
-            hint = "Left Label"
         }
         val midInput = EditText(this).apply {
+            stylePremiumInput(this, "Middle Label")
             setText(doc.subHeaderMiddle)
-            hint = "Middle Label"
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(0, dpInt(8f), 0, dpInt(8f))
+            layoutParams = lp
         }
         val rightInput = EditText(this).apply {
+            stylePremiumInput(this, "Right Label")
             setText(doc.subHeaderRight)
-            hint = "Right Label"
         }
 
         layout.addView(showTitleCb)
@@ -949,7 +1172,7 @@ class MainActivity : AppCompatActivity() {
         layout.addView(midInput)
         layout.addView(rightInput)
 
-        AlertDialog.Builder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle("Top Big Header & Info Bar")
             .setView(layout)
             .setPositiveButton("Save") { _, _ ->
@@ -964,22 +1187,26 @@ class MainActivity : AppCompatActivity() {
                 saveDocumentState()
             }
             .setNegativeButton("Cancel", null)
-            .show()
+        showPremiumDialog(builder)
     }
 
     private fun showBorderStyleDialog() {
         val doc = tableView.document
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 12)
+            setPadding(dpInt(22f), dpInt(12f), dpInt(22f), dpInt(8f))
         }
 
         val widthLabel = TextView(this).apply {
             text = String.format(Locale.US, "Border Thickness: %.1f dp", doc.borderWidthDp)
+            setTextColor(Color.parseColor(SLATE_INK))
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         }
         val widthSeek = SeekBar(this).apply {
             max = 45
             progress = ((doc.borderWidthDp - 0.5f) * 10).toInt().coerceIn(0, 45)
+            progressTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            thumbTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
                     doc.borderWidthDp = 0.5f + (p / 10f)
@@ -994,10 +1221,15 @@ class MainActivity : AppCompatActivity() {
 
         val curveLabel = TextView(this).apply {
             text = String.format(Locale.US, "Table Corner Curve: %.0f dp", doc.tableCornerRadiusDp)
+            setTextColor(Color.parseColor(SLATE_INK))
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            setPadding(0, dpInt(12f), 0, 0)
         }
         val curveSeek = SeekBar(this).apply {
             max = 36
             progress = doc.tableCornerRadiusDp.toInt().coerceIn(0, 36)
+            progressTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            thumbTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
                     doc.tableCornerRadiusDp = p.toFloat()
@@ -1013,10 +1245,15 @@ class MainActivity : AppCompatActivity() {
 
         val fontLabel = TextView(this).apply {
             text = String.format(Locale.US, "Table Font Size: %.0f sp", doc.fontSizeSp)
+            setTextColor(Color.parseColor(SLATE_INK))
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            setPadding(0, dpInt(12f), 0, 0)
         }
         val fontSeek = SeekBar(this).apply {
             max = 16
             progress = (doc.fontSizeSp - 8f).toInt().coerceIn(0, 16)
+            progressTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            thumbTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
                     doc.fontSizeSp = 8f + p
@@ -1036,11 +1273,11 @@ class MainActivity : AppCompatActivity() {
         layout.addView(fontLabel)
         layout.addView(fontSeek)
 
-        AlertDialog.Builder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle("Table Borders, Corner Curve & Font")
             .setView(layout)
             .setPositiveButton("Done") { _, _ -> saveDocumentState() }
-            .show()
+        showPremiumDialog(builder)
     }
 
     private fun openPrintPreviewA4Landscape() {
