@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val KEY_SALESMAN_JSON = "salesman_names_json"
         private const val KEY_HELPER_JSON = "helper_names_json"
+        private const val KEY_TABLE_DOC_JSON = "table_document_json"
 
         // Refined Warm Alabaster & Deep Slate Palette
         private const val BG_CANVAS = "#F4F5F7"
@@ -285,11 +286,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             onHeaderSelectedListener = { c ->
-                showHeaderEditorDialog(c)
+                if (assignmentMode != AssignmentMode.NONE) {
+                    saveDocumentState()
+                    updateStatus()
+                } else {
+                    showHeaderEditorDialog(c)
+                }
             }
         }
 
-        loadSavedNamesIntoDocument()
+        loadSavedStateIntoDocument()
 
         horizontalScroll.addView(tableView)
         verticalScroll.addView(horizontalScroll)
@@ -381,16 +387,34 @@ class MainActivity : AppCompatActivity() {
         updateStatus()
     }
 
-    private fun loadSavedNamesIntoDocument() {
-        tableView.document.salesmanNames.clear()
-        readNamesFromPrefs(KEY_SALESMAN_JSON)?.let {
-            tableView.document.salesmanNames.addAll(it)
+    override fun onPause() {
+        super.onPause()
+        saveDocumentState()
+    }
+
+    private fun saveDocumentState() {
+        prefs.edit().putString(KEY_TABLE_DOC_JSON, tableView.document.toJsonString()).apply()
+    }
+
+    private fun loadSavedStateIntoDocument() {
+        val savedDocJson = prefs.getString(KEY_TABLE_DOC_JSON, null)
+        if (savedDocJson != null) {
+            TableDocument.fromJsonString(savedDocJson)?.let { restored ->
+                tableView.document = restored
+            }
         }
 
-        tableView.document.helperNames.clear()
-        readNamesFromPrefs(KEY_HELPER_JSON)?.let {
-            tableView.document.helperNames.addAll(it)
+        // Also sync separate name lists if updated independently
+        readNamesFromPrefs(KEY_SALESMAN_JSON)?.let { savedSalesmen ->
+            tableView.document.salesmanNames.clear()
+            tableView.document.salesmanNames.addAll(savedSalesmen)
         }
+        readNamesFromPrefs(KEY_HELPER_JSON)?.let { savedHelpers ->
+            tableView.document.helperNames.clear()
+            tableView.document.helperNames.addAll(savedHelpers)
+        }
+
+        saveDocumentState()
     }
 
     private fun readNamesFromPrefs(key: String): List<String>? {
@@ -416,12 +440,14 @@ class MainActivity : AppCompatActivity() {
             array.put(name)
         }
         prefs.edit().putString(key, array.toString()).apply()
+        saveDocumentState()
     }
 
     private fun showTopOverflowMenu(anchor: View) {
         val popup = PopupMenu(this, anchor)
         popup.menu.add(0, 1, 0, "Add Salesman Names")
         popup.menu.add(0, 2, 1, "Add Helper Names")
+        popup.menu.add(0, 3, 2, "Reset Table")
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 1 -> {
@@ -432,10 +458,36 @@ class MainActivity : AppCompatActivity() {
                     showManageNamesDialog(isSalesman = false)
                     true
                 }
+                3 -> {
+                    confirmResetTable()
+                    true
+                }
                 else -> false
             }
         }
         popup.show()
+    }
+
+    private fun confirmResetTable() {
+        AlertDialog.Builder(this)
+            .setTitle("Reset Table?")
+            .setMessage("This will reset the table layout and cell entries while keeping your saved Salesman and Helper name lists.")
+            .setPositiveButton("Reset") { _, _ ->
+                val savedSalesmen = ArrayList(tableView.document.salesmanNames)
+                val savedHelpers = ArrayList(tableView.document.helperNames)
+                val fresh = TableDocument.createSampleLikeImage().apply {
+                    salesmanNames.clear()
+                    salesmanNames.addAll(savedSalesmen)
+                    helperNames.clear()
+                    helperNames.addAll(savedHelpers)
+                }
+                tableView.document = fresh
+                saveDocumentState()
+                updateStatus()
+                Toast.makeText(this, "Table reset", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showManageNamesDialog(isSalesman: Boolean) {
@@ -564,6 +616,7 @@ class MainActivity : AppCompatActivity() {
                     cell.isBold = true
                 }
                 tableView.invalidate()
+                saveDocumentState()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -637,6 +690,7 @@ class MainActivity : AppCompatActivity() {
                 cell.isBold = boldCheck.isChecked
                 cell.alignCenter = centerCheck.isChecked
                 tableView.invalidate()
+                saveDocumentState()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -675,6 +729,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 tableView.requestLayout()
                 tableView.invalidate()
+                saveDocumentState()
                 updateStatus()
             }
             .setNegativeButton("Cancel", null)
@@ -687,6 +742,7 @@ class MainActivity : AppCompatActivity() {
             ?.getOrNull(tableView.selectedCol) ?: return
         cell.isBold = !cell.isBold
         tableView.invalidate()
+        saveDocumentState()
     }
 
     private fun showColorPickerDialog() {
@@ -709,6 +765,7 @@ class MainActivity : AppCompatActivity() {
             .setItems(colors.map { it.first }.toTypedArray()) { _, idx ->
                 cell.bgColor = colors[idx].second
                 tableView.invalidate()
+                saveDocumentState()
             }
             .show()
     }
@@ -735,6 +792,7 @@ class MainActivity : AppCompatActivity() {
                     col.widthCm = cm
                     tableView.requestLayout()
                     tableView.invalidate()
+                    saveDocumentState()
                     updateStatus()
                 }
                 override fun onStartTrackingTouch(sb: SeekBar?) {}
@@ -748,7 +806,7 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Resize Column ${c + 1} (${col.headerText})")
             .setView(layout)
-            .setPositiveButton("Done", null)
+            .setPositiveButton("Done") { _, _ -> saveDocumentState() }
             .show()
     }
 
@@ -774,6 +832,7 @@ class MainActivity : AppCompatActivity() {
                     row.heightCm = cm
                     tableView.requestLayout()
                     tableView.invalidate()
+                    saveDocumentState()
                     updateStatus()
                 }
                 override fun onStartTrackingTouch(sb: SeekBar?) {}
@@ -787,6 +846,7 @@ class MainActivity : AppCompatActivity() {
                 tableView.document.rows.forEach { it.heightCm = h }
                 tableView.requestLayout()
                 tableView.invalidate()
+                saveDocumentState()
                 Toast.makeText(
                     this@MainActivity,
                     "Updated all rows to ${String.format(Locale.US, "%.2f", h)} cm",
@@ -802,7 +862,7 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Resize Row ${r + 1} Height (cm)")
             .setView(layout)
-            .setPositiveButton("Done", null)
+            .setPositiveButton("Done") { _, _ -> saveDocumentState() }
             .show()
     }
 
@@ -813,6 +873,7 @@ class MainActivity : AppCompatActivity() {
         doc.rows.forEach { it.cells.add(CellData("")) }
         tableView.requestLayout()
         tableView.invalidate()
+        saveDocumentState()
     }
 
     private fun removeColumn() {
@@ -824,6 +885,7 @@ class MainActivity : AppCompatActivity() {
         tableView.selectedCol = (idx - 1).coerceAtLeast(0)
         tableView.requestLayout()
         tableView.invalidate()
+        saveDocumentState()
         updateStatus()
     }
 
@@ -833,6 +895,7 @@ class MainActivity : AppCompatActivity() {
         doc.rows.add(RowConfig(0.68f, cells))
         tableView.requestLayout()
         tableView.invalidate()
+        saveDocumentState()
     }
 
     private fun removeRow() {
@@ -843,6 +906,7 @@ class MainActivity : AppCompatActivity() {
         tableView.selectedRow = (idx - 1).coerceAtLeast(0)
         tableView.requestLayout()
         tableView.invalidate()
+        saveDocumentState()
         updateStatus()
     }
 
@@ -897,6 +961,7 @@ class MainActivity : AppCompatActivity() {
                 doc.subHeaderRight = rightInput.text.toString()
                 tableView.requestLayout()
                 tableView.invalidate()
+                saveDocumentState()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -920,6 +985,7 @@ class MainActivity : AppCompatActivity() {
                     doc.borderWidthDp = 0.5f + (p / 10f)
                     widthLabel.text = String.format(Locale.US, "Border Thickness: %.1f dp", doc.borderWidthDp)
                     tableView.invalidate()
+                    saveDocumentState()
                 }
                 override fun onStartTrackingTouch(sb: SeekBar?) {}
                 override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -938,6 +1004,7 @@ class MainActivity : AppCompatActivity() {
                     doc.subHeaderRadiusDp = (p * 1.2f).coerceAtLeast(4f)
                     curveLabel.text = String.format(Locale.US, "Table Corner Curve: %.0f dp", doc.tableCornerRadiusDp)
                     tableView.invalidate()
+                    saveDocumentState()
                 }
                 override fun onStartTrackingTouch(sb: SeekBar?) {}
                 override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -955,6 +1022,7 @@ class MainActivity : AppCompatActivity() {
                     doc.fontSizeSp = 8f + p
                     fontLabel.text = String.format(Locale.US, "Table Font Size: %.0f sp", doc.fontSizeSp)
                     tableView.invalidate()
+                    saveDocumentState()
                 }
                 override fun onStartTrackingTouch(sb: SeekBar?) {}
                 override fun onStopTrackingTouch(sb: SeekBar?) {}
@@ -971,7 +1039,7 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Table Borders, Corner Curve & Font")
             .setView(layout)
-            .setPositiveButton("Done", null)
+            .setPositiveButton("Done") { _, _ -> saveDocumentState() }
             .show()
     }
 
