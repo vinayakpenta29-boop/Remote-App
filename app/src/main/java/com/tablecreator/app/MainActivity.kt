@@ -43,16 +43,17 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_SALESMAN_JSON = "salesman_names_json"
         private const val KEY_HELPER_JSON = "helper_names_json"
 
-        private const val BG_OBSIDIAN = "#090B10"
-        private const val SURFACE_ELEVATED = "#121620"
-        private const val SURFACE_CARD = "#171C28"
-        private const val BORDER_SUBTLE = "#262D3D"
-        private const val CRIMSON_PRIMARY = "#BE123C"
-        private const val CRIMSON_DEEP = "#980F30"
-        private const val CRIMSON_SOFT_BG = "#2A1018"
-        private const val TEXT_PRIMARY = "#F8FAFC"
-        private const val TEXT_SECONDARY = "#94A3B8"
-        private const val EMERALD_EXPORT = "#059669"
+        // Refined Warm Alabaster & Deep Slate Palette
+        private const val BG_CANVAS = "#F4F5F7"
+        private const val SURFACE_WHITE = "#FFFFFF"
+        private const val SURFACE_TINT = "#EEF2F6"
+        private const val BORDER_HAIRLINE = "#D8DEE9"
+        private const val SLATE_INK = "#1E293B"
+        private const val SLATE_MUTED = "#64748B"
+        private const val INDIGO_ACCENT = "#2563EB"
+        private const val INDIGO_SOFT = "#EFF6FF"
+        private const val INDIGO_BORDER = "#BFDBFE"
+        private const val TEAL_PDF = "#0F766E"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,66 +61,57 @@ class MainActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor(BG_OBSIDIAN))
+            setBackgroundColor(Color.parseColor(BG_CANVAS))
         }
 
-        // 1. Ultra-Premium Top Header Bar
+        // 1. Clean Top Header Bar
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor(SURFACE_ELEVATED))
-            setPadding(28, 22, 16, 22)
+            setBackgroundColor(Color.parseColor(SURFACE_WHITE))
+            setPadding(24, 18, 12, 18)
             gravity = Gravity.CENTER_VERTICAL
-            elevation = 6f
+            elevation = 3f
         }
 
-        val titleColumn = LinearLayout(this).apply {
+        val titleBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val appTitle = TextView(this).apply {
-            text = "TABLE STUDIO"
-            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            text = "Table Creator"
+            setTextColor(Color.parseColor(SLATE_INK))
             textSize = 18f
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            letterSpacing = 0.08f
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         }
 
         val appSubtitle = TextView(this).apply {
-            text = "PRO GRID & ROSTER BUILDER"
-            setTextColor(Color.parseColor(TEXT_SECONDARY))
-            textSize = 10f
-            typeface = Typeface.MONOSPACE
-            letterSpacing = 0.12f
+            text = "Sheet & Roster Editor"
+            setTextColor(Color.parseColor(SLATE_MUTED))
+            textSize = 11f
         }
 
-        titleColumn.addView(appTitle)
-        titleColumn.addView(appSubtitle)
+        titleBlock.addView(appTitle)
+        titleBlock.addView(appSubtitle)
 
         val exportBtn = MaterialButton(this).apply {
-            text = "PDF"
+            text = "Export PDF"
             textSize = 12f
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             setTextColor(Color.WHITE)
-            backgroundTintList = ColorStateList.valueOf(Color.parseColor(EMERALD_EXPORT))
-            cornerRadius = 24
-            val lp = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            lp.setMargins(8, 0, 4, 0)
-            layoutParams = lp
+            backgroundTintList = ColorStateList.valueOf(Color.parseColor(TEAL_PDF))
+            cornerRadius = 18
             setOnClickListener { exportTableToPdf() }
         }
 
-        val menuBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_more)
-            contentDescription = "More Options"
+        val menuBtn = TextView(this).apply {
+            text = "⋮"
+            textSize = 22f
+            setTextColor(Color.parseColor(SLATE_INK))
+            gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor(SURFACE_CARD))
+                setColor(Color.parseColor(SURFACE_TINT))
             }
-            setColorFilter(Color.parseColor(TEXT_PRIMARY))
             val sizePx = (40 * resources.displayMetrics.density).toInt()
             val lp = LinearLayout.LayoutParams(sizePx, sizePx)
             lp.setMargins(8, 0, 0, 0)
@@ -127,40 +119,40 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { showTopOverflowMenu(this) }
         }
 
-        topBar.addView(titleColumn)
+        topBar.addView(titleBlock)
         topBar.addView(exportBtn)
         topBar.addView(menuBtn)
         root.addView(topBar)
 
-        // 2. Salesman & Helper Toggle Card
+        // 2. Salesman & Helper Toggle Strip
         val toggleCard = MaterialCardView(this).apply {
-            setCardBackgroundColor(Color.parseColor(SURFACE_CARD))
-            radius = 24f
-            cardElevation = 4f
+            setCardBackgroundColor(Color.parseColor(SURFACE_WHITE))
+            radius = 18f
+            cardElevation = 1f
             strokeWidth = 2
-            strokeColor = Color.parseColor(BORDER_SUBTLE)
+            strokeColor = Color.parseColor(BORDER_HAIRLINE)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            lp.setMargins(16, 12, 16, 8)
+            lp.setMargins(14, 10, 14, 6)
             layoutParams = lp
         }
 
         val toggleBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(20, 10, 20, 10)
+            setPadding(18, 6, 18, 6)
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        val switchStates = ColorStateList(
+        val trackStates = ColorStateList(
             arrayOf(
                 intArrayOf(android.R.attr.state_checked),
                 intArrayOf()
             ),
             intArrayOf(
-                Color.parseColor(CRIMSON_PRIMARY),
-                Color.parseColor("#475569")
+                Color.parseColor("#93C5FD"),
+                Color.parseColor("#CBD5E1")
             )
         )
 
@@ -170,18 +162,18 @@ class MainActivity : AppCompatActivity() {
                 intArrayOf()
             ),
             intArrayOf(
-                Color.WHITE,
-                Color.parseColor("#CBD5E1")
+                Color.parseColor(INDIGO_ACCENT),
+                Color.parseColor("#F8FAFC")
             )
         )
 
         salesmanSwitch = SwitchMaterial(this).apply {
             text = "Salesman"
             textSize = 13f
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor(SLATE_INK))
             thumbTintList = thumbStates
-            trackTintList = switchStates
+            trackTintList = trackStates
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             setOnCheckedChangeListener { _, isChecked ->
                 if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
@@ -198,9 +190,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val dividerView = android.view.View(this).apply {
-            setBackgroundColor(Color.parseColor(BORDER_SUBTLE))
-            val hPx = (24 * resources.displayMetrics.density).toInt()
+        val verticalDivider = android.view.View(this).apply {
+            setBackgroundColor(Color.parseColor(BORDER_HAIRLINE))
+            val hPx = (22 * resources.displayMetrics.density).toInt()
             val lp = LinearLayout.LayoutParams(2, hPx)
             lp.setMargins(12, 0, 12, 0)
             layoutParams = lp
@@ -209,10 +201,10 @@ class MainActivity : AppCompatActivity() {
         helperSwitch = SwitchMaterial(this).apply {
             text = "Helper"
             textSize = 13f
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor(SLATE_INK))
             thumbTintList = thumbStates
-            trackTintList = switchStates
+            trackTintList = trackStates
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             setOnCheckedChangeListener { _, isChecked ->
                 if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
@@ -230,48 +222,47 @@ class MainActivity : AppCompatActivity() {
         }
 
         toggleBar.addView(salesmanSwitch)
-        toggleBar.addView(dividerView)
+        toggleBar.addView(verticalDivider)
         toggleBar.addView(helperSwitch)
         toggleCard.addView(toggleBar)
         root.addView(toggleCard)
 
-        // 3. Monospace Telemetry Status Pill
+        // 3. Soft Info Status Bar
         val statusCard = MaterialCardView(this).apply {
-            setCardBackgroundColor(Color.parseColor(CRIMSON_SOFT_BG))
-            radius = 18f
+            setCardBackgroundColor(Color.parseColor(INDIGO_SOFT))
+            radius = 14f
             cardElevation = 0f
             strokeWidth = 2
-            strokeColor = Color.parseColor(CRIMSON_DEEP)
+            strokeColor = Color.parseColor(INDIGO_BORDER)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            lp.setMargins(16, 0, 16, 10)
+            lp.setMargins(14, 0, 14, 8)
             layoutParams = lp
         }
 
         statusText = TextView(this).apply {
-            setPadding(20, 12, 20, 12)
-            setTextColor(Color.parseColor("#FDA4AF"))
-            textSize = 11.5f
-            typeface = Typeface.MONOSPACE
+            setPadding(18, 10, 18, 10)
+            setTextColor(Color.parseColor("#1E3A8A"))
+            textSize = 12f
         }
         statusCard.addView(statusText)
         root.addView(statusCard)
 
-        // 4. Framed Table Canvas Workspace
+        // 4. Table Workspace Card
         val canvasCard = MaterialCardView(this).apply {
-            setCardBackgroundColor(Color.WHITE)
-            radius = 24f
-            cardElevation = 6f
+            setCardBackgroundColor(Color.parseColor(SURFACE_WHITE))
+            radius = 18f
+            cardElevation = 2f
             strokeWidth = 2
-            strokeColor = Color.parseColor(BORDER_SUBTLE)
+            strokeColor = Color.parseColor(BORDER_HAIRLINE)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
                 1f
             )
-            lp.setMargins(16, 0, 16, 12)
+            lp.setMargins(14, 0, 14, 10)
             layoutParams = lp
         }
 
@@ -302,18 +293,18 @@ class MainActivity : AppCompatActivity() {
         canvasCard.addView(verticalScroll)
         root.addView(canvasCard)
 
-        // 5. Sleek Bottom Action Dock
+        // 5. Bottom Action Toolbar
         val dockCard = MaterialCardView(this).apply {
-            setCardBackgroundColor(Color.parseColor(SURFACE_ELEVATED))
-            radius = 26f
-            cardElevation = 12f
+            setCardBackgroundColor(Color.parseColor(SURFACE_WHITE))
+            radius = 20f
+            cardElevation = 4f
             strokeWidth = 2
-            strokeColor = Color.parseColor(BORDER_SUBTLE)
+            strokeColor = Color.parseColor(BORDER_HAIRLINE)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            lp.setMargins(12, 0, 12, 12)
+            lp.setMargins(10, 0, 10, 10)
             layoutParams = lp
         }
 
@@ -322,7 +313,7 @@ class MainActivity : AppCompatActivity() {
         }
         val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(14, 14, 14, 14)
+            setPadding(12, 12, 12, 12)
         }
 
         val actions = listOf(
@@ -341,33 +332,32 @@ class MainActivity : AppCompatActivity() {
 
         for ((index, pair) in actions.withIndex()) {
             val (label, action) = pair
-            val isAccentAction = index == 0 || index == 5 || index == 7
+            val isPrimaryAction = index == 0
             val btn = MaterialButton(
                 this,
                 null,
                 com.google.android.material.R.attr.materialButtonOutlinedStyle
             ).apply {
                 text = label
-                textSize = 11.5f
-                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-                cornerRadius = 20
+                textSize = 12f
                 setTextColor(
-                    if (isAccentAction) Color.WHITE else Color.parseColor(TEXT_PRIMARY)
+                    if (isPrimaryAction) Color.WHITE else Color.parseColor(SLATE_INK)
                 )
                 backgroundTintList = ColorStateList.valueOf(
-                    if (isAccentAction) Color.parseColor(CRIMSON_PRIMARY)
-                    else Color.parseColor(SURFACE_CARD)
+                    if (isPrimaryAction) Color.parseColor(INDIGO_ACCENT)
+                    else Color.parseColor(SURFACE_TINT)
                 )
                 strokeColor = ColorStateList.valueOf(
-                    if (isAccentAction) Color.parseColor(CRIMSON_DEEP)
-                    else Color.parseColor(BORDER_SUBTLE)
+                    if (isPrimaryAction) Color.parseColor(INDIGO_ACCENT)
+                    else Color.parseColor(BORDER_HAIRLINE)
                 )
                 strokeWidth = 2
+                cornerRadius = 16
                 val lp = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                lp.setMargins(6, 0, 6, 0)
+                lp.setMargins(5, 0, 5, 0)
                 layoutParams = lp
                 setOnClickListener {
                     if (tableView.assignmentMode == AssignmentMode.NONE) {
@@ -586,7 +576,7 @@ class MainActivity : AppCompatActivity() {
         val enabled = tableView.assignmentMode == AssignmentMode.NONE
         for (btn in bottomButtons) {
             btn.isEnabled = enabled
-            btn.alpha = if (enabled) 1.0f else 0.35f
+            btn.alpha = if (enabled) 1.0f else 0.4f
         }
     }
 
@@ -600,15 +590,15 @@ class MainActivity : AppCompatActivity() {
         statusText.text = when (tableView.assignmentMode) {
             AssignmentMode.SALESMAN -> {
                 val checked = if (doc.isColumnChecked(c, AssignmentMode.SALESMAN)) "CHECKED" else "UNCHECKED"
-                "SALESMAN MODE | C${c + 1}: $checked | Tap checked cell to assign"
+                "Salesman mode • Col ${c + 1} is $checked • Tap checked cell to assign"
             }
             AssignmentMode.HELPER -> {
                 val checked = if (doc.isColumnChecked(c, AssignmentMode.HELPER)) "CHECKED" else "UNCHECKED"
-                "HELPER MODE | C${c + 1}: $checked | Tap checked cell to assign"
+                "Helper mode • Col ${c + 1} is $checked • Tap checked cell to assign"
             }
             AssignmentMode.NONE -> String.format(
                 Locale.US,
-                "R%d:C%d  |  W:%.2fcm  |  H:%.2fcm",
+                "Row %d, Col %d  •  Width: %.2f cm  •  Height: %.2f cm",
                 r + 1, c + 1, colW, rowH
             )
         }
