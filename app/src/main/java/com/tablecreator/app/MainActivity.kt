@@ -25,6 +25,12 @@ import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
+import android.print.PageRange
+import android.print.PrintAttributes
+import android.print.PrintDocumentAdapter
+import android.print.PrintDocumentInfo
+import android.print.PrintManager
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -978,46 +984,99 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun exportTableToPdf() {
-        tableView.isExporting = true
-        tableView.invalidate()
+        private fun exportTableToPdf() {
+        val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
+        if (printManager == null) {
+            Toast.makeText(this, "Print service not available", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        val pdfDocument = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(tableView.width, tableView.height, 1).create()
-        val page = pdfDocument.startPage(pageInfo)
-        val canvas: Canvas = page.canvas
-        tableView.draw(canvas)
-        pdfDocument.finishPage(page)
+        val jobName = "${tableView.document.mainTitle.ifBlank { "Table" }}_A4_Landscape"
+        val attributes = PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape())
+            .setResolution(PrintAttributes.Resolution("a4_300dpi", "A4 300 DPI", 300, 300))
+            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+            .build()
 
-        tableView.isExporting = false
-        tableView.invalidate()
+        val adapter = object : PrintDocumentAdapter() {
+            private var pageHeightPts = 0
+            private var pageWidthPts = 0
 
-        val fileName = "Table_${System.currentTimeMillis()}.pdf"
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val values = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
-                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            override fun onLayout(
+                oldAttributes: PrintAttributes?,
+                newAttributes: PrintAttributes,
+                cancellationSignal: android.os.CancellationSignal?,
+                callback: LayoutResultCallback,
+                extras: Bundle?
+            ) {
+                val mediaSize = newAttributes.mediaSize ?: PrintAttributes.MediaSize.ISO_A4.asLandscape()
+                // PrintAttributes dimensions are in mils (1/1000 inch); 1 pt = 1/72 inch => mils * 72 / 1000
+                pageWidthPts = (mediaSize.widthMils * 72f / 1000f).toInt()
+                pageHeightPts = (mediaSize.heightMils * 72f / 1000f).toInt()
+
+                if (cancellationSignal?.isCanceled == true) {
+                    callback.onLayoutCancelled()
+                    return
                 }
-                val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                uri?.let {
-                    contentResolver.openOutputStream(it)?.use { out ->
-                        pdfDocument.writeTo(out)
-                    }
-                }
-            } else {
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val file = File(downloadsDir, fileName)
-                FileOutputStream(file).use { out ->
-                    pdfDocument.writeTo(out)
+
+                val info = PrintDocumentInfo.Builder("$jobName.pdf")
+                    .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                    .setPageCount(1)
+                    .build()
+
+                callback.onLayoutFinished(info, true)
+            }
+
+            override fun onWrite(
+                pages: Array<out PageRange>,
+                destination: android.os.ParcelFileDescriptor,
+                cancellationSignal: android.os.CancellationSignal?,
+                callback: WriteResultCallback
+            ) {
+                val pdfDocument = PdfDocument()
+                try {
+                    val pageInfo = PdfDocument.PageInfo.Builder(pageWidthPts, pageHeightPts, 1).create()
+                    val page = pdfDocument.startPage(pageInfo)
+                    val canvas: Canvas = page.canvas
+
+                    val contentWidth = tableView.width.coerceAtLeast(1).toFloat()
+                    val contentHeight = tableView.height.coerceAtLeast(1).toFloat()
+                    val marginPts = 18f // ~0.25 inch clean page margin
+
+                    val availW = (pageWidthPts - marginPts * 2f).coerceAtLeast(1f)
+                    val availH = (pageHeightPts - marginPts * 2f).coerceAtLeast(1f)
+
+                    // Fit table proportionally inside A4 Landscape page
+                    val scale = minOf(availW / contentWidth, availH / contentHeight)
+                    val scaledW = contentWidth * scale
+                    val scaledH = contentHeight * scale
+                    val offsetX = marginPts + (availW - scaledW) / 2f
+                    val offsetY = marginPts
+
+                    canvas.drawColor(Color.WHITE)
+                    canvas.save()
+                    canvas.translate(offsetX, offsetY)
+                    canvas.scale(scale, scale)
+
+                    tableView.isExporting = true
+                    tableView.draw(canvas)
+                    tableView.isExporting = false
+
+                    canvas.restore()
+                    pdfDocument.finishPage(page)
+
+                    pdfDocument.writeTo(FileOutputStream(destination.fileDescriptor))
+                    callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
+                } catch (e: Exception) {
+                    callback.onWriteFailed(e.message)
+                } finally {
+                    tableView.isExporting = false
+                    tableView.invalidate()
+                    pdfDocument.close()
                 }
             }
-            Toast.makeText(this, "Saved PDF to Downloads/$fileName", Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Toast.makeText(this, "Export error: ${e.message}", Toast.LENGTH_LONG).show()
-        } finally {
-            pdfDocument.close()
         }
+
+        printManager.print(jobName, adapter, attributes)
     }
-}
