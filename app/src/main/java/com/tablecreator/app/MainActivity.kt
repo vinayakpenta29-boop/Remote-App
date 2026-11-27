@@ -1,6 +1,5 @@
 package com.tablecreator.app
 
-import android.content.ContentValues
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
@@ -8,12 +7,17 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.pdf.PdfDocument
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.MediaStore
+import android.os.CancellationSignal
+import android.os.ParcelFileDescriptor
+import android.print.PageRange
+import android.print.PrintAttributes
+import android.print.PrintDocumentAdapter
+import android.print.PrintDocumentInfo
+import android.print.PrintManager
 import android.text.InputType
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
@@ -22,15 +26,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.switchmaterial.SwitchMaterial
 import org.json.JSONArray
-import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
-import android.print.PageRange
-import android.print.PrintAttributes
-import android.print.PrintDocumentAdapter
-import android.print.PrintDocumentInfo
-import android.print.PrintManager
-
 
 class MainActivity : AppCompatActivity() {
 
@@ -106,7 +103,7 @@ class MainActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             backgroundTintList = ColorStateList.valueOf(Color.parseColor(TEAL_PDF))
             cornerRadius = 18
-            setOnClickListener { exportTableToPdf() }
+            setOnClickListener { openPrintPreviewA4Landscape() }
         }
 
         val menuBtn = TextView(this).apply {
@@ -196,7 +193,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val verticalDivider = android.view.View(this).apply {
+        val verticalDivider = View(this).apply {
             setBackgroundColor(Color.parseColor(BORDER_HAIRLINE))
             val hPx = (22 * resources.displayMetrics.density).toInt()
             val lp = LinearLayout.LayoutParams(2, hPx)
@@ -385,20 +382,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadSavedNamesIntoDocument() {
-        val savedSalesmen = readNamesFromPrefs(KEY_SALESMAN_JSON)
-        if (savedSalesmen != null) {
-            tableView.document.salesmanNames.clear()
-            tableView.document.salesmanNames.addAll(savedSalesmen)
-        } else {
-            saveNamesToPrefs(KEY_SALESMAN_JSON, tableView.document.salesmanNames)
+        tableView.document.salesmanNames.clear()
+        readNamesFromPrefs(KEY_SALESMAN_JSON)?.let {
+            tableView.document.salesmanNames.addAll(it)
         }
 
-        val savedHelpers = readNamesFromPrefs(KEY_HELPER_JSON)
-        if (savedHelpers != null) {
-            tableView.document.helperNames.clear()
-            tableView.document.helperNames.addAll(savedHelpers)
-        } else {
-            saveNamesToPrefs(KEY_HELPER_JSON, tableView.document.helperNames)
+        tableView.document.helperNames.clear()
+        readNamesFromPrefs(KEY_HELPER_JSON)?.let {
+            tableView.document.helperNames.addAll(it)
         }
     }
 
@@ -427,7 +418,7 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().putString(key, array.toString()).apply()
     }
 
-    private fun showTopOverflowMenu(anchor: android.view.View) {
+    private fun showTopOverflowMenu(anchor: View) {
         val popup = PopupMenu(this, anchor)
         popup.menu.add(0, 1, 0, "Add Salesman Names")
         popup.menu.add(0, 2, 1, "Add Helper Names")
@@ -984,7 +975,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-        private fun exportTableToPdf() {
+    private fun openPrintPreviewA4Landscape() {
         val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
         if (printManager == null) {
             Toast.makeText(this, "Print service not available", Toast.LENGTH_SHORT).show()
@@ -1000,20 +991,19 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         val adapter = object : PrintDocumentAdapter() {
-            private var pageHeightPts = 0
-            private var pageWidthPts = 0
+            private var pageWidthPts = 842
+            private var pageHeightPts = 595
 
             override fun onLayout(
                 oldAttributes: PrintAttributes?,
                 newAttributes: PrintAttributes,
-                cancellationSignal: android.os.CancellationSignal?,
+                cancellationSignal: CancellationSignal?,
                 callback: LayoutResultCallback,
                 extras: Bundle?
             ) {
                 val mediaSize = newAttributes.mediaSize ?: PrintAttributes.MediaSize.ISO_A4.asLandscape()
-                // PrintAttributes dimensions are in mils (1/1000 inch); 1 pt = 1/72 inch => mils * 72 / 1000
-                pageWidthPts = (mediaSize.widthMils * 72f / 1000f).toInt()
-                pageHeightPts = (mediaSize.heightMils * 72f / 1000f).toInt()
+                pageWidthPts = (mediaSize.widthMils * 72f / 1000f).toInt().coerceAtLeast(1)
+                pageHeightPts = (mediaSize.heightMils * 72f / 1000f).toInt().coerceAtLeast(1)
 
                 if (cancellationSignal?.isCanceled == true) {
                     callback.onLayoutCancelled()
@@ -1030,8 +1020,8 @@ class MainActivity : AppCompatActivity() {
 
             override fun onWrite(
                 pages: Array<out PageRange>,
-                destination: android.os.ParcelFileDescriptor,
-                cancellationSignal: android.os.CancellationSignal?,
+                destination: ParcelFileDescriptor,
+                cancellationSignal: CancellationSignal?,
                 callback: WriteResultCallback
             ) {
                 val pdfDocument = PdfDocument()
@@ -1042,12 +1032,11 @@ class MainActivity : AppCompatActivity() {
 
                     val contentWidth = tableView.width.coerceAtLeast(1).toFloat()
                     val contentHeight = tableView.height.coerceAtLeast(1).toFloat()
-                    val marginPts = 18f // ~0.25 inch clean page margin
+                    val marginPts = 18f
 
                     val availW = (pageWidthPts - marginPts * 2f).coerceAtLeast(1f)
                     val availH = (pageHeightPts - marginPts * 2f).coerceAtLeast(1f)
 
-                    // Fit table proportionally inside A4 Landscape page
                     val scale = minOf(availW / contentWidth, availH / contentHeight)
                     val scaledW = contentWidth * scale
                     val scaledH = contentHeight * scale
@@ -1080,3 +1069,4 @@ class MainActivity : AppCompatActivity() {
 
         printManager.print(jobName, adapter, attributes)
     }
+}
