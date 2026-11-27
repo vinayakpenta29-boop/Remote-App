@@ -18,18 +18,17 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
-      - name: Upgrade Gradle Wrapper to 8.4
-        run: |
-          gradle wrapper --gradle-version 8.4 --distribution-type bin
-          chmod +x ./gradlew
+      - name: Setup Gradle 8.4
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.4'
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: gradle assembleDebug
 
       - name: Build unsigned Release APK
-        run: ./gradlew assembleRelease
+        run: gradle assembleRelease
 
       - name: Sign Release APK
         uses: r0adkll/sign-android-release@v1
