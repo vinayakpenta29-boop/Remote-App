@@ -40,30 +40,8 @@ data class TableDocument(
     var borderColor: Int = Color.BLACK,
     var tableCornerRadiusDp: Float = 8f,
     var fontSizeSp: Float = 12f,
-    val salesmanNames: MutableList<String> = mutableListOf(
-        "304 - किरण पन्हा",
-        "305 - नरेश नामपेल्ली",
-        "314 - अंबादास मिराणम",
-        "310 - श्रीनिवास बट्टुल",
-        "309 - श्रीनिवास अंकम",
-        "380 - अंबादास सदुपटला",
-        "316 - महेश गंजी",
-        "318 - गोपी पंडाल",
-        "320 - रवींद्र कोल्पाक",
-        "379 - नरेश महंता"
-    ),
-    val helperNames: MutableList<String> = mutableListOf(
-        "348 - विनायक माहेश्वर",
-        "569 - आकाश अक्कलदेवी",
-        "388 - लखन मदलेटी",
-        "346 - जगदिश गुर्म",
-        "501 - नरेश महंता (New)",
-        "561 - प्रमोद संगा",
-        "499 - अरुण मरगल",
-        "526 - ओम पहाडे",
-        "539 - कार्तिक म्हेत्रे",
-        "801 - दत्तात्रय सानेपागुल"
-    ),
+    val salesmanNames: MutableList<String> = mutableListOf(),
+    val helperNames: MutableList<String> = mutableListOf(),
     val columns: MutableList<ColumnConfig> = mutableListOf(),
     val rows: MutableList<RowConfig> = mutableListOf()
 ) {
