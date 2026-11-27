@@ -1,8 +1,12 @@
 package com.tablecreator.app
 
 import android.content.ContentValues
+import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.graphics.pdf.PdfDocument
 import android.os.Build
 import android.os.Bundle
@@ -15,7 +19,9 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.switchmaterial.SwitchMaterial
+import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -29,63 +35,153 @@ class MainActivity : AppCompatActivity() {
     private val bottomButtons = mutableListOf<MaterialButton>()
     private var suppressSwitchCallbacks = false
 
+    private val prefs by lazy {
+        getSharedPreferences("table_creator_prefs", Context.MODE_PRIVATE)
+    }
+
+    companion object {
+        private const val KEY_SALESMAN_JSON = "salesman_names_json"
+        private const val KEY_HELPER_JSON = "helper_names_json"
+
+        private const val BG_OBSIDIAN = "#090B10"
+        private const val SURFACE_ELEVATED = "#121620"
+        private const val SURFACE_CARD = "#171C28"
+        private const val BORDER_SUBTLE = "#262D3D"
+        private const val CRIMSON_PRIMARY = "#BE123C"
+        private const val CRIMSON_DEEP = "#980F30"
+        private const val CRIMSON_SOFT_BG = "#2A1018"
+        private const val TEXT_PRIMARY = "#F8FAFC"
+        private const val TEXT_SECONDARY = "#94A3B8"
+        private const val EMERALD_EXPORT = "#059669"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#ECEFF1"))
+            setBackgroundColor(Color.parseColor(BG_OBSIDIAN))
         }
 
-        // Top App Bar with Three-Dots Menu on Right Side
+        // 1. Ultra-Premium Top Header Bar
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor("#1B4F72"))
-            setPadding(24, 20, 12, 20)
+            setBackgroundColor(Color.parseColor(SURFACE_ELEVATED))
+            setPadding(28, 22, 16, 22)
             gravity = Gravity.CENTER_VERTICAL
+            elevation = 6f
         }
 
-        val appTitle = TextView(this).apply {
-            text = "Table Creator Studio"
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            setTypeface(null, android.graphics.Typeface.BOLD)
+        val titleColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
+        val appTitle = TextView(this).apply {
+            text = "TABLE STUDIO"
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            textSize = 18f
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            letterSpacing = 0.08f
+        }
+
+        val appSubtitle = TextView(this).apply {
+            text = "PRO GRID & ROSTER BUILDER"
+            setTextColor(Color.parseColor(TEXT_SECONDARY))
+            textSize = 10f
+            typeface = Typeface.MONOSPACE
+            letterSpacing = 0.12f
+        }
+
+        titleColumn.addView(appTitle)
+        titleColumn.addView(appSubtitle)
+
         val exportBtn = MaterialButton(this).apply {
             text = "PDF"
-            setBackgroundColor(Color.parseColor("#2E7D32"))
+            textSize = 12f
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList.valueOf(Color.parseColor(EMERALD_EXPORT))
+            cornerRadius = 24
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(8, 0, 4, 0)
+            layoutParams = lp
             setOnClickListener { exportTableToPdf() }
         }
 
         val menuBtn = ImageButton(this).apply {
             setImageResource(android.R.drawable.ic_menu_more)
             contentDescription = "More Options"
-            setBackgroundColor(Color.TRANSPARENT)
-            setColorFilter(Color.WHITE)
-            setPadding(16, 12, 16, 12)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor(SURFACE_CARD))
+            }
+            setColorFilter(Color.parseColor(TEXT_PRIMARY))
+            val sizePx = (40 * resources.displayMetrics.density).toInt()
+            val lp = LinearLayout.LayoutParams(sizePx, sizePx)
+            lp.setMargins(8, 0, 0, 0)
+            layoutParams = lp
             setOnClickListener { showTopOverflowMenu(this) }
         }
 
-        topBar.addView(appTitle)
+        topBar.addView(titleColumn)
         topBar.addView(exportBtn)
         topBar.addView(menuBtn)
         root.addView(topBar)
 
-        // Salesman & Helper Toggle Switch Row
+        // 2. Salesman & Helper Toggle Card
+        val toggleCard = MaterialCardView(this).apply {
+            setCardBackgroundColor(Color.parseColor(SURFACE_CARD))
+            radius = 24f
+            cardElevation = 4f
+            strokeWidth = 2
+            strokeColor = Color.parseColor(BORDER_SUBTLE)
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(16, 12, 16, 8)
+            layoutParams = lp
+        }
+
         val toggleBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.WHITE)
-            setPadding(20, 8, 20, 8)
+            setPadding(20, 10, 20, 10)
             gravity = Gravity.CENTER_VERTICAL
         }
 
+        val switchStates = ColorStateList(
+            arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf()
+            ),
+            intArrayOf(
+                Color.parseColor(CRIMSON_PRIMARY),
+                Color.parseColor("#475569")
+            )
+        )
+
+        val thumbStates = ColorStateList(
+            arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf()
+            ),
+            intArrayOf(
+                Color.WHITE,
+                Color.parseColor("#CBD5E1")
+            )
+        )
+
         salesmanSwitch = SwitchMaterial(this).apply {
             text = "Salesman"
-            setTextColor(Color.parseColor("#1B4F72"))
-            setTypeface(null, android.graphics.Typeface.BOLD)
+            textSize = 13f
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            thumbTintList = thumbStates
+            trackTintList = switchStates
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             setOnCheckedChangeListener { _, isChecked ->
                 if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
@@ -102,10 +198,21 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        val dividerView = android.view.View(this).apply {
+            setBackgroundColor(Color.parseColor(BORDER_SUBTLE))
+            val hPx = (24 * resources.displayMetrics.density).toInt()
+            val lp = LinearLayout.LayoutParams(2, hPx)
+            lp.setMargins(12, 0, 12, 0)
+            layoutParams = lp
+        }
+
         helperSwitch = SwitchMaterial(this).apply {
             text = "Helper"
-            setTextColor(Color.parseColor("#1B4F72"))
-            setTypeface(null, android.graphics.Typeface.BOLD)
+            textSize = 13f
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            thumbTintList = thumbStates
+            trackTintList = switchStates
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             setOnCheckedChangeListener { _, isChecked ->
                 if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
@@ -123,24 +230,55 @@ class MainActivity : AppCompatActivity() {
         }
 
         toggleBar.addView(salesmanSwitch)
+        toggleBar.addView(dividerView)
         toggleBar.addView(helperSwitch)
-        root.addView(toggleBar)
+        toggleCard.addView(toggleBar)
+        root.addView(toggleCard)
 
-        // Status Indicator Bar
-        statusText = TextView(this).apply {
-            setPadding(24, 10, 24, 10)
-            setBackgroundColor(Color.parseColor("#D6EAF8"))
-            setTextColor(Color.parseColor("#1B4F72"))
-            textSize = 12f
+        // 3. Monospace Telemetry Status Pill
+        val statusCard = MaterialCardView(this).apply {
+            setCardBackgroundColor(Color.parseColor(CRIMSON_SOFT_BG))
+            radius = 18f
+            cardElevation = 0f
+            strokeWidth = 2
+            strokeColor = Color.parseColor(CRIMSON_DEEP)
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(16, 0, 16, 10)
+            layoutParams = lp
         }
-        root.addView(statusText)
 
-        // Scrollable Two-Way Canvas Container
-        val verticalScroll = ScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
+        statusText = TextView(this).apply {
+            setPadding(20, 12, 20, 12)
+            setTextColor(Color.parseColor("#FDA4AF"))
+            textSize = 11.5f
+            typeface = Typeface.MONOSPACE
+        }
+        statusCard.addView(statusText)
+        root.addView(statusCard)
+
+        // 4. Framed Table Canvas Workspace
+        val canvasCard = MaterialCardView(this).apply {
+            setCardBackgroundColor(Color.WHITE)
+            radius = 24f
+            cardElevation = 6f
+            strokeWidth = 2
+            strokeColor = Color.parseColor(BORDER_SUBTLE)
+            val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
                 1f
+            )
+            lp.setMargins(16, 0, 16, 12)
+            layoutParams = lp
+        }
+
+        val verticalScroll = ScrollView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
         val horizontalScroll = HorizontalScrollView(this)
@@ -157,18 +295,34 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        loadSavedNamesIntoDocument()
+
         horizontalScroll.addView(tableView)
         verticalScroll.addView(horizontalScroll)
-        root.addView(verticalScroll)
+        canvasCard.addView(verticalScroll)
+        root.addView(canvasCard)
 
-        // Bottom Scrollable Action Toolbar
+        // 5. Sleek Bottom Action Dock
+        val dockCard = MaterialCardView(this).apply {
+            setCardBackgroundColor(Color.parseColor(SURFACE_ELEVATED))
+            radius = 26f
+            cardElevation = 12f
+            strokeWidth = 2
+            strokeColor = Color.parseColor(BORDER_SUBTLE)
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(12, 0, 12, 12)
+            layoutParams = lp
+        }
+
         val toolbarScroll = HorizontalScrollView(this).apply {
-            setBackgroundColor(Color.WHITE)
-            elevation = 8f
+            isHorizontalScrollBarEnabled = false
         }
         val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(12, 12, 12, 16)
+            setPadding(14, 14, 14, 14)
         }
 
         val actions = listOf(
@@ -185,10 +339,30 @@ class MainActivity : AppCompatActivity() {
             "Borders & Curve" to { showBorderStyleDialog() }
         )
 
-        for ((label, action) in actions) {
-            val btn = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+        for ((index, pair) in actions.withIndex()) {
+            val (label, action) = pair
+            val isAccentAction = index == 0 || index == 5 || index == 7
+            val btn = MaterialButton(
+                this,
+                null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
                 text = label
-                textSize = 12f
+                textSize = 11.5f
+                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                cornerRadius = 20
+                setTextColor(
+                    if (isAccentAction) Color.WHITE else Color.parseColor(TEXT_PRIMARY)
+                )
+                backgroundTintList = ColorStateList.valueOf(
+                    if (isAccentAction) Color.parseColor(CRIMSON_PRIMARY)
+                    else Color.parseColor(SURFACE_CARD)
+                )
+                strokeColor = ColorStateList.valueOf(
+                    if (isAccentAction) Color.parseColor(CRIMSON_DEEP)
+                    else Color.parseColor(BORDER_SUBTLE)
+                )
+                strokeWidth = 2
                 val lp = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
@@ -206,11 +380,55 @@ class MainActivity : AppCompatActivity() {
         }
 
         toolbarScroll.addView(toolbar)
-        root.addView(toolbarScroll)
+        dockCard.addView(toolbarScroll)
+        root.addView(dockCard)
 
         setContentView(root)
         updateToolbarEnabledState()
         updateStatus()
+    }
+
+    private fun loadSavedNamesIntoDocument() {
+        val savedSalesmen = readNamesFromPrefs(KEY_SALESMAN_JSON)
+        if (savedSalesmen != null) {
+            tableView.document.salesmanNames.clear()
+            tableView.document.salesmanNames.addAll(savedSalesmen)
+        } else {
+            saveNamesToPrefs(KEY_SALESMAN_JSON, tableView.document.salesmanNames)
+        }
+
+        val savedHelpers = readNamesFromPrefs(KEY_HELPER_JSON)
+        if (savedHelpers != null) {
+            tableView.document.helperNames.clear()
+            tableView.document.helperNames.addAll(savedHelpers)
+        } else {
+            saveNamesToPrefs(KEY_HELPER_JSON, tableView.document.helperNames)
+        }
+    }
+
+    private fun readNamesFromPrefs(key: String): List<String>? {
+        val rawJson = prefs.getString(key, null) ?: return null
+        return try {
+            val array = JSONArray(rawJson)
+            val result = mutableListOf<String>()
+            for (i in 0 until array.length()) {
+                val item = array.optString(i, "").trim()
+                if (item.isNotEmpty()) {
+                    result.add(item)
+                }
+            }
+            result
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun saveNamesToPrefs(key: String, names: List<String>) {
+        val array = JSONArray()
+        for (name in names) {
+            array.put(name)
+        }
+        prefs.edit().putString(key, array.toString()).apply()
     }
 
     private fun showTopOverflowMenu(anchor: android.view.View) {
@@ -235,6 +453,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showManageNamesDialog(isSalesman: Boolean) {
         val list = if (isSalesman) tableView.document.salesmanNames else tableView.document.helperNames
+        val prefKey = if (isSalesman) KEY_SALESMAN_JSON else KEY_HELPER_JSON
         val title = if (isSalesman) "Salesman Names" else "Helper Names"
 
         val container = LinearLayout(this).apply {
@@ -282,12 +501,14 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             list.add(newName)
+            saveNamesToPrefs(prefKey, list)
             adapter.notifyDataSetChanged()
             nameInput.setText("")
         }
 
         listView.setOnItemLongClickListener { _, _, position, _ ->
             val removed = list.removeAt(position)
+            saveNamesToPrefs(prefKey, list)
             adapter.notifyDataSetChanged()
             Toast.makeText(this, "Removed: $removed", Toast.LENGTH_SHORT).show()
             true
@@ -365,7 +586,7 @@ class MainActivity : AppCompatActivity() {
         val enabled = tableView.assignmentMode == AssignmentMode.NONE
         for (btn in bottomButtons) {
             btn.isEnabled = enabled
-            btn.alpha = if (enabled) 1.0f else 0.4f
+            btn.alpha = if (enabled) 1.0f else 0.35f
         }
     }
 
@@ -379,15 +600,15 @@ class MainActivity : AppCompatActivity() {
         statusText.text = when (tableView.assignmentMode) {
             AssignmentMode.SALESMAN -> {
                 val checked = if (doc.isColumnChecked(c, AssignmentMode.SALESMAN)) "CHECKED" else "UNCHECKED"
-                "SALESMAN MODE: Tap header checkbox to toggle column | Col ${c + 1} is $checked | Tap checked cell to pick name"
+                "SALESMAN MODE | C${c + 1}: $checked | Tap checked cell to assign"
             }
             AssignmentMode.HELPER -> {
                 val checked = if (doc.isColumnChecked(c, AssignmentMode.HELPER)) "CHECKED" else "UNCHECKED"
-                "HELPER MODE: Tap header checkbox to toggle column | Col ${c + 1} is $checked | Tap checked cell to pick name"
+                "HELPER MODE | C${c + 1}: $checked | Tap checked cell to assign"
             }
             AssignmentMode.NONE -> String.format(
                 Locale.US,
-                "Cell [R%d, C%d] | Width: %.2f cm | Height: %.2f cm (Tap header to edit)",
+                "R%d:C%d  |  W:%.2fcm  |  H:%.2fcm",
                 r + 1, c + 1, colW, rowH
             )
         }
