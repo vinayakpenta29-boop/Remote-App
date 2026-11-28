@@ -89,7 +89,9 @@ class TableCanvasView @JvmOverloads constructor(
     private val rowTops = mutableListOf<Float>()
     private val rowBottoms = mutableListOf<Float>()
 
-    private val paddingPx get() = 16f * density
+    private val activePaddingPx: Float
+        get() = if (isExporting) 0f else 16f * density
+
     private val headerHeightPx get() = 1.05f * pxPerCm
 
     private val mainTitleBlockHeightPx: Float
@@ -101,6 +103,14 @@ class TableCanvasView @JvmOverloads constructor(
     // Exact 0.5 cm gap between Top Info Bar (सेनापतीचे नाव) and Main Table
     private val subHeaderBlockHeightPx: Float
         get() = if (document.showSubHeader) subHeaderBarHeightPx + (0.5f * pxPerCm) else 0f
+
+    fun getContentWidthPx(): Float =
+        document.columns.sumOf { (it.widthCm * pxPerCm).toDouble() }.toFloat()
+
+    fun getContentHeightPx(): Float {
+        val totalRowsHeight = document.rows.sumOf { (it.heightCm * pxPerCm).toDouble() }.toFloat()
+        return mainTitleBlockHeightPx + subHeaderBlockHeightPx + headerHeightPx + totalRowsHeight
+    }
 
     fun clearMultiSelection() {
         isMultiSelectMode = false
@@ -175,13 +185,9 @@ class TableCanvasView @JvmOverloads constructor(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val totalColsWidth = document.columns.sumOf { (it.widthCm * pxPerCm).toDouble() }.toFloat()
-        val totalRowsHeight = document.rows.sumOf { (it.heightCm * pxPerCm).toDouble() }.toFloat()
-
-        val extraTop = paddingPx * 2 + mainTitleBlockHeightPx + subHeaderBlockHeightPx
-
-        val desiredW = (totalColsWidth + paddingPx * 2).roundToInt().coerceAtLeast(300)
-        val desiredH = (totalRowsHeight + headerHeightPx + extraTop).roundToInt().coerceAtLeast(300)
+        val pad = 16f * density
+        val desiredW = (getContentWidthPx() + pad * 2).roundToInt().coerceAtLeast(300)
+        val desiredH = (getContentHeightPx() + pad * 2).roundToInt().coerceAtLeast(300)
         setMeasuredDimension(desiredW, desiredH)
     }
 
@@ -195,10 +201,10 @@ class TableCanvasView @JvmOverloads constructor(
         checkboxBoxPaint.strokeWidth = 1.8f * density
         checkmarkPaint.strokeWidth = 2.4f * density
 
-        val startX = paddingPx
-        val totalTableWidth = document.columns.sumOf { (it.widthCm * pxPerCm).toDouble() }.toFloat()
+        val startX = activePaddingPx
+        val totalTableWidth = getContentWidthPx()
         val endX = startX + totalTableWidth
-        var currentY = paddingPx
+        var currentY = activePaddingPx
 
         // 1. Main Big Header Text
         if (document.showMainTitle) {
