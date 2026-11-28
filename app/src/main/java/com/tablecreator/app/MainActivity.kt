@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var tableView: TableCanvasView
     private lateinit var statusText: TextView
+    private lateinit var clearSelectionBtn: TextView
     private lateinit var salesmanSwitch: SwitchMaterial
     private lateinit var helperSwitch: SwitchMaterial
     private val bottomButtons = mutableListOf<MaterialButton>()
@@ -48,7 +49,6 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_HELPER_JSON = "helper_names_json"
         private const val KEY_TABLE_DOC_JSON = "table_document_json"
 
-        // Refined Warm Alabaster & Deep Slate Palette
         private const val BG_CANVAS = "#F1F5F9"
         private const val SURFACE_WHITE = "#FFFFFF"
         private const val SURFACE_TINT = "#F8FAFC"
@@ -302,7 +302,7 @@ class MainActivity : AppCompatActivity() {
         toggleCard.addView(toggleBar)
         root.addView(toggleCard)
 
-        // 3. Rounded Status Pill Card
+        // 3. Rounded Status Pill Card (with quick "Done" exit when multi-selecting cells)
         val statusCard = MaterialCardView(this).apply {
             setCardBackgroundColor(Color.parseColor(INDIGO_SOFT))
             radius = dp(16f)
@@ -317,13 +317,36 @@ class MainActivity : AppCompatActivity() {
             layoutParams = lp
         }
 
+        val statusRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpInt(16f), dpInt(7f), dpInt(12f), dpInt(7f))
+        }
+
         statusText = TextView(this).apply {
-            setPadding(dpInt(16f), dpInt(9f), dpInt(16f), dpInt(9f))
             setTextColor(Color.parseColor("#1E3A8A"))
             textSize = 12f
             typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        statusCard.addView(statusText)
+
+        clearSelectionBtn = TextView(this).apply {
+            text = "Clear"
+            textSize = 11f
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            background = roundedBackground("#2563EB", "#1D4ED8", radiusDp = 12f, strokeDp = 0f)
+            setPadding(dpInt(10f), dpInt(4f), dpInt(10f), dpInt(4f))
+            visibility = View.GONE
+            setOnClickListener {
+                tableView.clearMultiSelection()
+                updateStatus()
+            }
+        }
+
+        statusRow.addView(statusText)
+        statusRow.addView(clearSelectionBtn)
+        statusCard.addView(statusRow)
         root.addView(statusCard)
 
         // 4. Rounded Table Workspace Card
@@ -365,6 +388,9 @@ class MainActivity : AppCompatActivity() {
                     showHeaderEditorDialog(c)
                 }
             }
+            onSelectionChangedListener = {
+                updateStatus()
+            }
         }
 
         loadSavedStateIntoDocument()
@@ -400,6 +426,7 @@ class MainActivity : AppCompatActivity() {
         val actions = listOf(
             "Edit Cell" to { showCellEditorDialog() },
             "Bold Toggle" to { toggleCellBold() },
+            "Remove Cell" to { removeSelectedCell() },
             "Fill Color" to { showColorPickerDialog() },
             "Col Width (cm)" to { showColumnWidthDialog() },
             "Row Height (cm)" to { showRowHeightDialog() },
@@ -487,6 +514,7 @@ class MainActivity : AppCompatActivity() {
             tableView.document.helperNames.addAll(savedHelpers)
         }
 
+        tableView.document.autoFillSerialNumbers()
         saveDocumentState()
     }
 
@@ -554,6 +582,7 @@ class MainActivity : AppCompatActivity() {
                     helperNames.clear()
                     helperNames.addAll(savedHelpers)
                 }
+                tableView.clearMultiSelection()
                 tableView.document = fresh
                 saveDocumentState()
                 updateStatus()
@@ -748,18 +777,23 @@ class MainActivity : AppCompatActivity() {
         val colW = doc.columns.getOrNull(c)?.widthCm ?: 0f
         val rowH = doc.rows.getOrNull(r)?.heightCm ?: 0f
 
-        statusText.text = when (tableView.assignmentMode) {
-            AssignmentMode.SALESMAN -> {
+        clearSelectionBtn.visibility = if (tableView.isMultiSelectMode) View.VISIBLE else View.GONE
+
+        statusText.text = when {
+            tableView.assignmentMode == AssignmentMode.SALESMAN -> {
                 val checked = if (doc.isColumnChecked(c, AssignmentMode.SALESMAN)) "CHECKED" else "UNCHECKED"
                 "Salesman mode • Col ${c + 1} is $checked • Tap checked cell to assign"
             }
-            AssignmentMode.HELPER -> {
+            tableView.assignmentMode == AssignmentMode.HELPER -> {
                 val checked = if (doc.isColumnChecked(c, AssignmentMode.HELPER)) "CHECKED" else "UNCHECKED"
                 "Helper mode • Col ${c + 1} is $checked • Tap checked cell to assign"
             }
-            AssignmentMode.NONE -> String.format(
+            tableView.isMultiSelectMode -> {
+                "${tableView.multiSelectedCells.size} cells selected • Tap more cells or Bold Toggle"
+            }
+            else -> String.format(
                 Locale.US,
-                "Row %d, Col %d  •  Width: %.2f cm  •  Height: %.2f cm",
+                "Row %d, Col %d  •  W: %.2f cm  •  H: %.2f cm  (Long-press cell to multi-select)",
                 r + 1, c + 1, colW, rowH
             )
         }
@@ -833,7 +867,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val nameLabel = TextView(this).apply {
-            text = "Header Text"
+            text = "Header Text (use क्र. for auto serial numbers)"
             textSize = 12f
             setTextColor(Color.parseColor(SLATE_MUTED))
             setPadding(0, 0, 0, dpInt(6f))
@@ -869,6 +903,7 @@ class MainActivity : AppCompatActivity() {
                 if (newW != null && newW in 0.5f..25f) {
                     col.widthCm = newW
                 }
+                tableView.document.autoFillSerialNumbers()
                 tableView.requestLayout()
                 tableView.invalidate()
                 saveDocumentState()
@@ -879,7 +914,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleCellBold() {
-        val cell = tableView.document.rows
+        val doc = tableView.document
+        if (tableView.isMultiSelectMode && tableView.multiSelectedCells.isNotEmpty()) {
+            val targets = tableView.multiSelectedCells.mapNotNull { (r, c) ->
+                doc.rows.getOrNull(r)?.cells?.getOrNull(c)
+            }
+            if (targets.isEmpty()) return
+            val makeBold = targets.any { !it.isBold }
+            targets.forEach { it.isBold = makeBold }
+            tableView.invalidate()
+            saveDocumentState()
+            Toast.makeText(
+                this,
+                if (makeBold) "Bolded ${targets.size} cells" else "Unbolded ${targets.size} cells",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val cell = doc.rows
             .getOrNull(tableView.selectedRow)?.cells
             ?.getOrNull(tableView.selectedCol) ?: return
         cell.isBold = !cell.isBold
@@ -887,11 +940,35 @@ class MainActivity : AppCompatActivity() {
         saveDocumentState()
     }
 
-    private fun showColorPickerDialog() {
-        val cell = tableView.document.rows
-            .getOrNull(tableView.selectedRow)?.cells
-            ?.getOrNull(tableView.selectedCol) ?: return
+    private fun removeSelectedCell() {
+        val doc = tableView.document
+        if (tableView.isMultiSelectMode && tableView.multiSelectedCells.isNotEmpty()) {
+            // Sort descending by row so shifting upward works cleanly per column
+            val sortedTargets = tableView.multiSelectedCells.sortedWith(
+                compareBy<Pair<Int, Int>> { it.second }.thenByDescending { it.first }
+            )
+            for ((r, c) in sortedTargets) {
+                doc.removeCellAndShiftUp(r, c)
+            }
+            tableView.clearMultiSelection()
+            tableView.invalidate()
+            saveDocumentState()
+            updateStatus()
+            Toast.makeText(this, "Removed selected cells & shifted column up", Toast.LENGTH_SHORT).show()
+            return
+        }
 
+        val r = tableView.selectedRow
+        val c = tableView.selectedCol
+        doc.removeCellAndShiftUp(r, c)
+        tableView.invalidate()
+        saveDocumentState()
+        updateStatus()
+        Toast.makeText(this, "Removed cell [R${r + 1}, C${c + 1}]", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showColorPickerDialog() {
+        val doc = tableView.document
         val colors = listOf(
             "White (Default)" to Color.WHITE,
             "Soft Cream Yellow" to Color.parseColor("#FFF9DB"),
@@ -944,7 +1021,13 @@ class MainActivity : AppCompatActivity() {
             row.addView(swatch)
             row.addView(text)
             row.setOnClickListener {
-                cell.bgColor = colorInt
+                if (tableView.isMultiSelectMode && tableView.multiSelectedCells.isNotEmpty()) {
+                    for ((r, c) in tableView.multiSelectedCells) {
+                        doc.rows.getOrNull(r)?.cells?.getOrNull(c)?.bgColor = colorInt
+                    }
+                } else {
+                    doc.rows.getOrNull(tableView.selectedRow)?.cells?.getOrNull(tableView.selectedCol)?.bgColor = colorInt
+                }
                 tableView.invalidate()
                 saveDocumentState()
                 dialogRef?.dismiss()
@@ -1083,6 +1166,7 @@ class MainActivity : AppCompatActivity() {
         val newColNum = doc.columns.size + 1
         doc.columns.add(ColumnConfig("Col $newColNum", 2.5f))
         doc.rows.forEach { it.cells.add(CellData("")) }
+        doc.autoFillSerialNumbers()
         tableView.requestLayout()
         tableView.invalidate()
         saveDocumentState()
@@ -1095,6 +1179,7 @@ class MainActivity : AppCompatActivity() {
         doc.columns.removeAt(idx)
         doc.rows.forEach { if (idx < it.cells.size) it.cells.removeAt(idx) }
         tableView.selectedCol = (idx - 1).coerceAtLeast(0)
+        tableView.clearMultiSelection()
         tableView.requestLayout()
         tableView.invalidate()
         saveDocumentState()
@@ -1105,6 +1190,7 @@ class MainActivity : AppCompatActivity() {
         val doc = tableView.document
         val cells = MutableList(doc.columns.size) { CellData("") }
         doc.rows.add(RowConfig(0.68f, cells))
+        doc.autoFillSerialNumbers()
         tableView.requestLayout()
         tableView.invalidate()
         saveDocumentState()
@@ -1115,7 +1201,9 @@ class MainActivity : AppCompatActivity() {
         if (doc.rows.size <= 1) return
         val idx = tableView.selectedRow.coerceIn(0, doc.rows.lastIndex)
         doc.rows.removeAt(idx)
+        doc.autoFillSerialNumbers()
         tableView.selectedRow = (idx - 1).coerceAtLeast(0)
+        tableView.clearMultiSelection()
         tableView.requestLayout()
         tableView.invalidate()
         saveDocumentState()
@@ -1124,6 +1212,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showTopHeaderDialog() {
         val doc = tableView.document
+        val scroll = ScrollView(this)
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dpInt(22f), dpInt(12f), dpInt(22f), dpInt(8f))
@@ -1139,19 +1228,44 @@ class MainActivity : AppCompatActivity() {
             stylePremiumInput(this, "Big Top Header Text")
             setText(doc.mainTitle)
         }
+
+        val mainTitleSizeLabel = TextView(this).apply {
+            text = String.format(Locale.US, "Main Big Header Size: %.0f sp", doc.mainTitleSizeSp)
+            textSize = 12f
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            setTextColor(Color.parseColor(INDIGO_ACCENT))
+            setPadding(0, dpInt(10f), 0, dpInt(4f))
+        }
+        val mainTitleSizeSeek = SeekBar(this).apply {
+            max = 22 // 14 sp to 36 sp
+            progress = (doc.mainTitleSizeSp - 14f).toInt().coerceIn(0, 22)
+            progressTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            thumbTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                    doc.mainTitleSizeSp = 14f + p
+                    mainTitleSizeLabel.text = String.format(Locale.US, "Main Big Header Size: %.0f sp", doc.mainTitleSizeSp)
+                    tableView.requestLayout()
+                    tableView.invalidate()
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            })
+        }
+
         val showSubCb = CheckBox(this).apply {
-            text = "Show Sub-Header Bar"
+            text = "Show Top Info Bar (सेनापतीचे नाव)"
             isChecked = doc.showSubHeader
             setTextColor(Color.parseColor(SLATE_INK))
             buttonTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
-            setPadding(0, dpInt(10f), 0, 0)
+            setPadding(0, dpInt(12f), 0, 0)
         }
         val leftInput = EditText(this).apply {
-            stylePremiumInput(this, "Left Label")
+            stylePremiumInput(this, "Left Label (e.g. सेनापतीचे नाव :)")
             setText(doc.subHeaderLeft)
         }
         val midInput = EditText(this).apply {
-            stylePremiumInput(this, "Middle Label")
+            stylePremiumInput(this, "Middle Label (e.g. तारीख :)")
             setText(doc.subHeaderMiddle)
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1161,20 +1275,54 @@ class MainActivity : AppCompatActivity() {
             layoutParams = lp
         }
         val rightInput = EditText(this).apply {
-            stylePremiumInput(this, "Right Label")
+            stylePremiumInput(this, "Right Label (e.g. / वार :)")
             setText(doc.subHeaderRight)
+        }
+
+        val subHeaderSizeLabel = TextView(this).apply {
+            text = String.format(Locale.US, "Top Info Bar (सेनापतीचे नाव) Text Size: %.0f sp", doc.subHeaderSizeSp)
+            textSize = 12f
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            setTextColor(Color.parseColor(INDIGO_ACCENT))
+            setPadding(0, dpInt(10f), 0, dpInt(4f))
+        }
+        val subHeaderSizeSeek = SeekBar(this).apply {
+            max = 16 // 8 sp to 24 sp
+            progress = (doc.subHeaderSizeSp - 8f).toInt().coerceIn(0, 16)
+            progressTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            thumbTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                    doc.subHeaderSizeSp = 8f + p
+                    subHeaderSizeLabel.text = String.format(
+                        Locale.US,
+                        "Top Info Bar (सेनापतीचे नाव) Text Size: %.0f sp",
+                        doc.subHeaderSizeSp
+                    )
+                    tableView.requestLayout()
+                    tableView.invalidate()
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            })
         }
 
         layout.addView(showTitleCb)
         layout.addView(titleInput)
+        layout.addView(mainTitleSizeLabel)
+        layout.addView(mainTitleSizeSeek)
         layout.addView(showSubCb)
         layout.addView(leftInput)
         layout.addView(midInput)
         layout.addView(rightInput)
+        layout.addView(subHeaderSizeLabel)
+        layout.addView(subHeaderSizeSeek)
+
+        scroll.addView(layout)
 
         val builder = MaterialAlertDialogBuilder(this)
             .setTitle("Top Big Header & Info Bar")
-            .setView(layout)
+            .setView(scroll)
             .setPositiveButton("Save") { _, _ ->
                 doc.showMainTitle = showTitleCb.isChecked
                 doc.mainTitle = titleInput.text.toString()
@@ -1186,7 +1334,9 @@ class MainActivity : AppCompatActivity() {
                 tableView.invalidate()
                 saveDocumentState()
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Cancel") { _, _ ->
+                saveDocumentState()
+            }
         showPremiumDialog(builder)
     }
 
