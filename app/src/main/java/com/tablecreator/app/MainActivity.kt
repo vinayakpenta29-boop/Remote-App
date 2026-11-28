@@ -1,5 +1,6 @@
 package com.tablecreator.app
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
@@ -7,14 +8,17 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.pdf.PdfDocument
+import android.os.Build
 import android.os.Bundle
 import android.os.CancellationSignal
+import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.print.PageRange
 import android.print.PrintAttributes
 import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
 import android.print.PrintManager
+import android.provider.MediaStore
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -27,6 +31,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial
 import org.json.JSONArray
+import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
 
@@ -60,6 +65,11 @@ class MainActivity : AppCompatActivity() {
         private const val INDIGO_SOFT = "#EFF6FF"
         private const val INDIGO_BORDER = "#BFDBFE"
         private const val TEAL_PDF = "#0F766E"
+
+        // A4 Landscape dimensions in PostScript points (1 inch = 72 pt, 1 cm = 28.3465 pt)
+        private const val PT_PER_CM = 72f / 2.54f
+        private const val A4_LANDSCAPE_WIDTH_PT = 842
+        private const val A4_LANDSCAPE_HEIGHT_PT = 595
     }
 
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
@@ -174,7 +184,7 @@ class MainActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             backgroundTintList = ColorStateList.valueOf(Color.parseColor(TEAL_PDF))
             cornerRadius = dpInt(16f)
-            setOnClickListener { openPrintPreviewA4Landscape() }
+            setOnClickListener { showExportMenu(this) }
         }
 
         val menuBtn = TextView(this).apply {
@@ -302,7 +312,7 @@ class MainActivity : AppCompatActivity() {
         toggleCard.addView(toggleBar)
         root.addView(toggleCard)
 
-        // 3. Rounded Status Pill Card (with quick "Done" exit when multi-selecting cells)
+        // 3. Rounded Status Pill Card
         val statusCard = MaterialCardView(this).apply {
             setCardBackgroundColor(Color.parseColor(INDIGO_SOFT))
             radius = dp(16f)
@@ -491,6 +501,181 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         saveDocumentState()
+    }
+
+    private fun showExportMenu(anchor: View) {
+        val popup = PopupMenu(this, anchor)
+        popup.menu.add(0, 1, 0, "Open Print")
+        popup.menu.add(0, 2, 1, "Download Print Table")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> {
+                    openPrintPreviewA4Landscape()
+                    true
+                }
+                2 -> {
+                    downloadPrintTableA4Landscape()
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    /**
+     * Renders the table onto an A4 Landscape canvas with exact 1.0 cm left and right margins
+     * and balanced 0.6 cm top and bottom margins so it fills the full sheet cleanly.
+     */
+    private fun drawTableFittedOnA4Landscape(canvas: Canvas, pageWidthPts: Int, pageHeightPts: Int) {
+        val sideMarginPts = 1.0f * PT_PER_CM   // Exact 1 cm left and 1 cm right margin
+        val topBottomMarginPts = 0.6f * PT_PER_CM
+
+        val availW = (pageWidthPts - sideMarginPts * 2f).coerceAtLeast(1f)
+        val availH = (pageHeightPts - topBottomMarginPts * 2f).coerceAtLeast(1f)
+
+        val contentW = tableView.getContentWidthPx().coerceAtLeast(1f)
+        val contentH = tableView.getContentHeightPx().coerceAtLeast(1f)
+
+        val scaleX = availW / contentW
+        val scaleY = availH / contentH
+
+        canvas.drawColor(Color.WHITE)
+        canvas.save()
+        canvas.translate(sideMarginPts, topBottomMarginPts)
+        canvas.scale(scaleX, scaleY)
+
+        tableView.isExporting = true
+        tableView.draw(canvas)
+        tableView.isExporting = false
+
+        canvas.restore()
+    }
+
+    private fun downloadPrintTableA4Landscape() {
+        val pdfDocument = PdfDocument()
+        try {
+            val pageInfo = PdfDocument.PageInfo.Builder(
+                A4_LANDSCAPE_WIDTH_PT,
+                A4_LANDSCAPE_HEIGHT_PT,
+                1
+            ).create()
+            val page = pdfDocument.startPage(pageInfo)
+
+            drawTableFittedOnA4Landscape(page.canvas, A4_LANDSCAPE_WIDTH_PT, A4_LANDSCAPE_HEIGHT_PT)
+
+            pdfDocument.finishPage(page)
+
+            val safeTitle = tableView.document.mainTitle
+                .replace(Regex("[^a-zA-Z0-9\\u0900-\\u097F_-]"), "_")
+                .ifBlank { "Print_Table" }
+            val fileName = "${safeTitle}_A4_${System.currentTimeMillis()}.pdf"
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                uri?.let {
+                    contentResolver.openOutputStream(it)?.use { out ->
+                        pdfDocument.writeTo(out)
+                    }
+                }
+            } else {
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = File(downloadsDir, fileName)
+                FileOutputStream(file).use { out ->
+                    pdfDocument.writeTo(out)
+                }
+            }
+
+            Toast.makeText(
+                this,
+                "Downloaded A4 PDF (1cm margins): Downloads/$fileName",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Download error: ${e.message}", Toast.LENGTH_LONG).show()
+        } finally {
+            tableView.isExporting = false
+            tableView.invalidate()
+            pdfDocument.close()
+        }
+    }
+
+    private fun openPrintPreviewA4Landscape() {
+        val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
+        if (printManager == null) {
+            Toast.makeText(this, "Print service not available", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val jobName = "${tableView.document.mainTitle.ifBlank { "Table" }}_A4_Landscape"
+        val attributes = PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape())
+            .setResolution(PrintAttributes.Resolution("a4_300dpi", "A4 300 DPI", 300, 300))
+            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+            .build()
+
+        val adapter = object : PrintDocumentAdapter() {
+            private var pageWidthPts = A4_LANDSCAPE_WIDTH_PT
+            private var pageHeightPts = A4_LANDSCAPE_HEIGHT_PT
+
+            override fun onLayout(
+                oldAttributes: PrintAttributes?,
+                newAttributes: PrintAttributes,
+                cancellationSignal: CancellationSignal?,
+                callback: LayoutResultCallback,
+                extras: Bundle?
+            ) {
+                val mediaSize = newAttributes.mediaSize ?: PrintAttributes.MediaSize.ISO_A4.asLandscape()
+                pageWidthPts = (mediaSize.widthMils * 72f / 1000f).toInt().coerceAtLeast(1)
+                pageHeightPts = (mediaSize.heightMils * 72f / 1000f).toInt().coerceAtLeast(1)
+
+                if (cancellationSignal?.isCanceled == true) {
+                    callback.onLayoutCancelled()
+                    return
+                }
+
+                val info = PrintDocumentInfo.Builder("$jobName.pdf")
+                    .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                    .setPageCount(1)
+                    .build()
+
+                callback.onLayoutFinished(info, true)
+            }
+
+            override fun onWrite(
+                pages: Array<out PageRange>,
+                destination: ParcelFileDescriptor,
+                cancellationSignal: CancellationSignal?,
+                callback: WriteResultCallback
+            ) {
+                val pdfDocument = PdfDocument()
+                try {
+                    val pageInfo = PdfDocument.PageInfo.Builder(pageWidthPts, pageHeightPts, 1).create()
+                    val page = pdfDocument.startPage(pageInfo)
+
+                    drawTableFittedOnA4Landscape(page.canvas, pageWidthPts, pageHeightPts)
+
+                    pdfDocument.finishPage(page)
+
+                    pdfDocument.writeTo(FileOutputStream(destination.fileDescriptor))
+                    callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
+                } catch (e: Exception) {
+                    callback.onWriteFailed(e.message)
+                } finally {
+                    tableView.isExporting = false
+                    tableView.invalidate()
+                    pdfDocument.close()
+                }
+            }
+        }
+
+        printManager.print(jobName, adapter, attributes)
     }
 
     private fun saveDocumentState() {
@@ -943,7 +1128,6 @@ class MainActivity : AppCompatActivity() {
     private fun removeSelectedCell() {
         val doc = tableView.document
         if (tableView.isMultiSelectMode && tableView.multiSelectedCells.isNotEmpty()) {
-            // Sort descending by row so shifting upward works cleanly per column
             val sortedTargets = tableView.multiSelectedCells.sortedWith(
                 compareBy<Pair<Int, Int>> { it.second }.thenByDescending { it.first }
             )
@@ -1237,7 +1421,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, dpInt(10f), 0, dpInt(4f))
         }
         val mainTitleSizeSeek = SeekBar(this).apply {
-            max = 22 // 14 sp to 36 sp
+            max = 22
             progress = (doc.mainTitleSizeSp - 14f).toInt().coerceIn(0, 22)
             progressTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
             thumbTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
@@ -1287,7 +1471,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, dpInt(10f), 0, dpInt(4f))
         }
         val subHeaderSizeSeek = SeekBar(this).apply {
-            max = 16 // 8 sp to 24 sp
+            max = 16
             progress = (doc.subHeaderSizeSp - 8f).toInt().coerceIn(0, 16)
             progressTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
             thumbTintList = ColorStateList.valueOf(Color.parseColor(INDIGO_ACCENT))
@@ -1428,100 +1612,5 @@ class MainActivity : AppCompatActivity() {
             .setView(layout)
             .setPositiveButton("Done") { _, _ -> saveDocumentState() }
         showPremiumDialog(builder)
-    }
-
-    private fun openPrintPreviewA4Landscape() {
-        val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
-        if (printManager == null) {
-            Toast.makeText(this, "Print service not available", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val jobName = "${tableView.document.mainTitle.ifBlank { "Table" }}_A4_Landscape"
-        val attributes = PrintAttributes.Builder()
-            .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape())
-            .setResolution(PrintAttributes.Resolution("a4_300dpi", "A4 300 DPI", 300, 300))
-            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
-            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
-            .build()
-
-        val adapter = object : PrintDocumentAdapter() {
-            private var pageWidthPts = 842
-            private var pageHeightPts = 595
-
-            override fun onLayout(
-                oldAttributes: PrintAttributes?,
-                newAttributes: PrintAttributes,
-                cancellationSignal: CancellationSignal?,
-                callback: LayoutResultCallback,
-                extras: Bundle?
-            ) {
-                val mediaSize = newAttributes.mediaSize ?: PrintAttributes.MediaSize.ISO_A4.asLandscape()
-                pageWidthPts = (mediaSize.widthMils * 72f / 1000f).toInt().coerceAtLeast(1)
-                pageHeightPts = (mediaSize.heightMils * 72f / 1000f).toInt().coerceAtLeast(1)
-
-                if (cancellationSignal?.isCanceled == true) {
-                    callback.onLayoutCancelled()
-                    return
-                }
-
-                val info = PrintDocumentInfo.Builder("$jobName.pdf")
-                    .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
-                    .setPageCount(1)
-                    .build()
-
-                callback.onLayoutFinished(info, true)
-            }
-
-            override fun onWrite(
-                pages: Array<out PageRange>,
-                destination: ParcelFileDescriptor,
-                cancellationSignal: CancellationSignal?,
-                callback: WriteResultCallback
-            ) {
-                val pdfDocument = PdfDocument()
-                try {
-                    val pageInfo = PdfDocument.PageInfo.Builder(pageWidthPts, pageHeightPts, 1).create()
-                    val page = pdfDocument.startPage(pageInfo)
-                    val canvas: Canvas = page.canvas
-
-                    val contentWidth = tableView.width.coerceAtLeast(1).toFloat()
-                    val contentHeight = tableView.height.coerceAtLeast(1).toFloat()
-                    val marginPts = 18f
-
-                    val availW = (pageWidthPts - marginPts * 2f).coerceAtLeast(1f)
-                    val availH = (pageHeightPts - marginPts * 2f).coerceAtLeast(1f)
-
-                    val scale = minOf(availW / contentWidth, availH / contentHeight)
-                    val scaledW = contentWidth * scale
-                    val scaledH = contentHeight * scale
-                    val offsetX = marginPts + (availW - scaledW) / 2f
-                    val offsetY = marginPts
-
-                    canvas.drawColor(Color.WHITE)
-                    canvas.save()
-                    canvas.translate(offsetX, offsetY)
-                    canvas.scale(scale, scale)
-
-                    tableView.isExporting = true
-                    tableView.draw(canvas)
-                    tableView.isExporting = false
-
-                    canvas.restore()
-                    pdfDocument.finishPage(page)
-
-                    pdfDocument.writeTo(FileOutputStream(destination.fileDescriptor))
-                    callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
-                } catch (e: Exception) {
-                    callback.onWriteFailed(e.message)
-                } finally {
-                    tableView.isExporting = false
-                    tableView.invalidate()
-                    pdfDocument.close()
-                }
-            }
-        }
-
-        printManager.print(jobName, adapter, attributes)
     }
 }
