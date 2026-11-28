@@ -90,10 +90,12 @@ data class RowConfig(
 data class TableDocument(
     var mainTitle: String = "व्हि. आर. पवार सारीज",
     var showMainTitle: Boolean = true,
+    var mainTitleSizeSp: Float = 20f,
     var subHeaderLeft: String = "सेनापतीचे नाव :",
     var subHeaderMiddle: String = "तारीख :",
     var subHeaderRight: String = "/ वार :",
     var showSubHeader: Boolean = true,
+    var subHeaderSizeSp: Float = 12f,
     var subHeaderRadiusDp: Float = 12f,
     var borderWidthDp: Float = 1.2f,
     var borderColor: Int = Color.BLACK,
@@ -104,6 +106,53 @@ data class TableDocument(
     val columns: MutableList<ColumnConfig> = mutableListOf(),
     val rows: MutableList<RowConfig> = mutableListOf()
 ) {
+    fun isSerialColumn(colIdx: Int): Boolean {
+        val header = columns.getOrNull(colIdx)?.headerText?.trim() ?: return false
+        return header == "क्र." || header == "क्र" ||
+            header.equals("Sr.", ignoreCase = true) ||
+            header.equals("Sr.No.", ignoreCase = true) ||
+            header.equals("No.", ignoreCase = true)
+    }
+
+    fun autoFillSerialNumbers() {
+        for (c in columns.indices) {
+            if (isSerialColumn(c)) {
+                for (r in rows.indices) {
+                    val cell = rows[r].cells.getOrNull(c) ?: continue
+                    cell.text = (r + 1).toString()
+                    cell.alignCenter = true
+                }
+            }
+        }
+    }
+
+    fun removeCellAndShiftUp(rowIdx: Int, colIdx: Int) {
+        if (rowIdx !in rows.indices || colIdx !in columns.indices) return
+        if (isSerialColumn(colIdx)) {
+            autoFillSerialNumbers()
+            return
+        }
+        // Shift cells below (rowIdx) upward within this single column
+        for (r in rowIdx until rows.lastIndex) {
+            val currentCell = rows[r].cells.getOrNull(colIdx) ?: continue
+            val nextCell = rows[r + 1].cells.getOrNull(colIdx) ?: continue
+            currentCell.text = nextCell.text
+            currentCell.isBold = nextCell.isBold
+            currentCell.bgColor = nextCell.bgColor
+            currentCell.textColor = nextCell.textColor
+            currentCell.alignCenter = nextCell.alignCenter
+        }
+        // Reset the bottom-most cell in this column so it is clean and ready
+        rows.lastOrNull()?.cells?.getOrNull(colIdx)?.apply {
+            text = ""
+            isBold = false
+            bgColor = Color.WHITE
+            textColor = Color.BLACK
+            alignCenter = false
+        }
+        autoFillSerialNumbers()
+    }
+
     fun isColumnChecked(colIdx: Int, mode: AssignmentMode): Boolean {
         val col = columns.getOrNull(colIdx) ?: return false
         return when (mode) {
@@ -142,10 +191,12 @@ data class TableDocument(
         val root = JSONObject().apply {
             put("mainTitle", mainTitle)
             put("showMainTitle", showMainTitle)
+            put("mainTitleSizeSp", mainTitleSizeSp.toDouble())
             put("subHeaderLeft", subHeaderLeft)
             put("subHeaderMiddle", subHeaderMiddle)
             put("subHeaderRight", subHeaderRight)
             put("showSubHeader", showSubHeader)
+            put("subHeaderSizeSp", subHeaderSizeSp.toDouble())
             put("subHeaderRadiusDp", subHeaderRadiusDp.toDouble())
             put("borderWidthDp", borderWidthDp.toDouble())
             put("borderColor", borderColor)
@@ -166,10 +217,12 @@ data class TableDocument(
                 val doc = TableDocument(
                     mainTitle = obj.optString("mainTitle", "व्हि. आर. पवार सारीज"),
                     showMainTitle = obj.optBoolean("showMainTitle", true),
+                    mainTitleSizeSp = obj.optDouble("mainTitleSizeSp", 20.0).toFloat(),
                     subHeaderLeft = obj.optString("subHeaderLeft", "सेनापतीचे नाव :"),
                     subHeaderMiddle = obj.optString("subHeaderMiddle", "तारीख :"),
                     subHeaderRight = obj.optString("subHeaderRight", "/ वार :"),
                     showSubHeader = obj.optBoolean("showSubHeader", true),
+                    subHeaderSizeSp = obj.optDouble("subHeaderSizeSp", 12.0).toFloat(),
                     subHeaderRadiusDp = obj.optDouble("subHeaderRadiusDp", 12.0).toFloat(),
                     borderWidthDp = obj.optDouble("borderWidthDp", 1.2).toFloat(),
                     borderColor = obj.optInt("borderColor", Color.BLACK),
@@ -227,8 +280,7 @@ data class TableDocument(
             for (r in 1..25) {
                 val cells = MutableList(defaultCols.size) { colIdx ->
                     when (colIdx) {
-                        0 -> CellData(if (r <= 21) r.toString() else "", alignCenter = true)
-                        3 -> CellData(r.toString(), alignCenter = true)
+                        0, 3 -> CellData(r.toString(), alignCenter = true)
                         else -> CellData("")
                     }
                 }
@@ -257,6 +309,7 @@ data class TableDocument(
                 isBold = true
                 alignCenter = true
             }
+            doc.autoFillSerialNumbers()
             return doc
         }
     }
