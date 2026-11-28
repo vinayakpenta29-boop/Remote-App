@@ -98,8 +98,9 @@ class TableCanvasView @JvmOverloads constructor(
     private val subHeaderBarHeightPx: Float
         get() = (document.subHeaderSizeSp * 1.6f + 16f) * density
 
+    // Exact 0.5 cm gap between Top Info Bar (सेनापतीचे नाव) and Main Table
     private val subHeaderBlockHeightPx: Float
-        get() = if (document.showSubHeader) subHeaderBarHeightPx + 10f * density else 0f
+        get() = if (document.showSubHeader) subHeaderBarHeightPx + (0.5f * pxPerCm) else 0f
 
     fun clearMultiSelection() {
         isMultiSelectMode = false
